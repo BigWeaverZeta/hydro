@@ -23,3 +23,7 @@ Hydro integrates naturally with standard Rust constructs and IDEs, providing typ
 # Contributing
 
 For Hydro development setup and contribution info, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+---
+
+☁️ **Cloud Humor**: Why don't programmers like AWS billing? Because the only thing that scales faster than their infrastructure is their bill!
