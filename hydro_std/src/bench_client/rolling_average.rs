@@ -81,3 +81,88 @@ impl RollingAverage {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_rolling_average_basic_statistics() {
+        let mut avg = RollingAverage::new();
+        
+        // Test empty state
+        assert_eq!(avg.sample_count(), 0);
+        assert_eq!(avg.sample_mean(), 0.0);
+        assert_eq!(avg.sample_variance(), 0.0);
+        assert_eq!(avg.sample_std_dev(), 0.0);
+        assert_eq!(avg.confidence_interval_99(), None);
+        
+        // Add samples
+        avg.add_sample(10.0);
+        avg.add_sample(20.0);
+        avg.add_sample(30.0);
+        
+        assert_eq!(avg.sample_count(), 3);
+        assert_eq!(avg.sample_mean(), 20.0);
+        
+        // Variance should be 100.0 for [10, 20, 30]
+        assert!((avg.sample_variance() - 100.0).abs() < 1e-10);
+        assert!((avg.sample_std_dev() - 10.0).abs() < 1e-10);
+        
+        // Confidence interval should exist
+        let ci = avg.confidence_interval_99();
+        assert!(ci.is_some());
+        let (lower, upper) = ci.unwrap();
+        assert!(lower < 20.0);
+        assert!(upper > 20.0);
+        assert!(lower < upper);
+    }
+
+    #[test]
+    fn test_rolling_average_single_sample() {
+        let mut avg = RollingAverage::new();
+        avg.add_sample(42.0);
+        
+        assert_eq!(avg.sample_count(), 1);
+        assert_eq!(avg.sample_mean(), 42.0);
+        assert_eq!(avg.sample_variance(), 0.0);
+        assert_eq!(avg.sample_std_dev(), 0.0);
+        assert_eq!(avg.confidence_interval_99(), None); // Need at least 2 samples
+    }
+
+    #[test]
+    fn test_rolling_average_merge() {
+        let mut avg1 = RollingAverage::new();
+        avg1.add_sample(10.0);
+        avg1.add_sample(20.0);
+        
+        let mut avg2 = RollingAverage::new();
+        avg2.add_sample(30.0);
+        avg2.add_sample(40.0);
+        
+        avg1.add(avg2);
+        
+        assert_eq!(avg1.sample_count(), 4);
+        assert_eq!(avg1.sample_mean(), 25.0);
+    }
+
+    #[test]
+    fn test_rolling_average_negative_values() {
+        let mut avg = RollingAverage::new();
+        avg.add_sample(-10.0);
+        avg.add_sample(-5.0);
+        avg.add_sample(5.0);
+        avg.add_sample(10.0);
+        
+        assert_eq!(avg.sample_count(), 4);
+        assert_eq!(avg.sample_mean(), 0.0);
+        assert!(avg.sample_variance() > 0.0);
+    }
+
+    #[test]
+    fn test_rolling_average_default() {
+        let avg = RollingAverage::default();
+        assert_eq!(avg.sample_count(), 0);
+        assert_eq!(avg.sample_mean(), 0.0);
+    }
+}

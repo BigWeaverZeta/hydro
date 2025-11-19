@@ -149,4 +149,49 @@ mod tests {
         println!("{}", line!());
         a.await.unwrap();
     }
+
+    #[tokio::test]
+    async fn test_flatten_empty_iterators() {
+        let (out_send, out_recv) = channel(10);
+        let out_send = PollSender::new(out_send);
+        let mut out_recv = ReceiverStream::new(out_recv);
+
+        let mut sink = Flatten::new(out_send);
+
+        let a = tokio::task::spawn(async move {
+            // Send empty vector
+            sink.send(Vec::<i32>::new()).await.unwrap();
+            // Send non-empty vector
+            sink.send(vec![1, 2]).await.unwrap();
+            // Send another empty vector
+            sink.send(Vec::<i32>::new()).await.unwrap();
+            // Send non-empty vector
+            sink.send(vec![3]).await.unwrap();
+        });
+
+        assert_eq!(
+            &[1, 2, 3],
+            &*out_recv.by_ref().collect::<Vec<_>>().await
+        );
+        a.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_flatten_single_element() {
+        let (out_send, out_recv) = channel(10);
+        let out_send = PollSender::new(out_send);
+        let mut out_recv = ReceiverStream::new(out_recv);
+
+        let mut sink = Flatten::new(out_send);
+
+        let a = tokio::task::spawn(async move {
+            sink.send(vec![42]).await.unwrap();
+        });
+
+        assert_eq!(
+            &[42],
+            &*out_recv.by_ref().collect::<Vec<_>>().await
+        );
+        a.await.unwrap();
+    }
 }
