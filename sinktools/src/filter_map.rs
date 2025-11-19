@@ -109,4 +109,62 @@ mod tests {
         println!("{}", line!());
         a.await.unwrap();
     }
+
+    #[tokio::test]
+    async fn test_filter_map_parse_integers() {
+        let (out_send, out_recv) = channel(10);
+        let out_send = PollSender::new(out_send);
+        let mut out_recv = ReceiverStream::new(out_recv);
+
+        let mut sink = FilterMap::new(
+            |s: &str| s.parse::<i32>().ok(),
+            out_send
+        );
+
+        let a = tokio::task::spawn(async move {
+            sink.send("42").await.unwrap();
+            sink.send("not a number").await.unwrap();
+            sink.send("100").await.unwrap();
+            sink.send("also not a number").await.unwrap();
+            sink.send("7").await.unwrap();
+        });
+
+        assert_eq!(
+            &[42, 100, 7],
+            &*out_recv.by_ref().collect::<Vec<_>>().await
+        );
+        a.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_filter_map_type_conversion() {
+        let (out_send, out_recv) = channel(10);
+        let out_send = PollSender::new(out_send);
+        let mut out_recv = ReceiverStream::new(out_recv);
+
+        let mut sink = FilterMap::new(
+            |x: i32| {
+                if x > 0 {
+                    Some(format!("positive: {}", x))
+                } else {
+                    None
+                }
+            },
+            out_send
+        );
+
+        let a = tokio::task::spawn(async move {
+            sink.send(5).await.unwrap();
+            sink.send(-3).await.unwrap();
+            sink.send(10).await.unwrap();
+            sink.send(0).await.unwrap();
+            sink.send(2).await.unwrap();
+        });
+
+        assert_eq!(
+            &["positive: 5".to_string(), "positive: 10".to_string(), "positive: 2".to_string()],
+            &*out_recv.by_ref().collect::<Vec<_>>().await
+        );
+        a.await.unwrap();
+    }
 }
