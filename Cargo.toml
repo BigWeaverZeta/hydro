@@ -1,22 +1,24 @@
 [workspace]
 
 # See "Adding new crates" and "Moving crates" addendum sections in `RELEASING.md`
+# NOTE: Test frameworks (hydro_test, example_test, multiplatform_test, include_mdtests) 
+#       have been migrated to cuddly-giggle repository
 members = [
     "benches",
     "dfir_lang",
     "dfir_macro",
     "dfir_rs",
-    "example_test",
+    # "example_test",        # MIGRATED to cuddly-giggle
     "hydro_deploy/core",
     "hydro_deploy/hydro_deploy_examples",
     "hydro_deploy/hydro_deploy_integration",
     "hydro_lang",
     "hydro_std",
-    "hydro_test",
-    "include_mdtests",
+    # "hydro_test",          # MIGRATED to cuddly-giggle
+    # "include_mdtests",     # MIGRATED to cuddly-giggle
     "lattices_macro",
     "lattices",
-    "multiplatform_test",
+    # "multiplatform_test",  # MIGRATED to cuddly-giggle
     "sinktools",
     "variadics_macro",
     "variadics",
