@@ -123,6 +123,8 @@ mod tests {
 
     use super::*;
     use crate::sink::SinkExt;
+    use crate::for_each::ForEach;
+    use std::cell::RefCell;
 
     #[tokio::test]
     async fn test_flatten() {
@@ -148,5 +150,67 @@ mod tests {
         );
         println!("{}", line!());
         a.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_flatten_empty_vectors() {
+        let result = RefCell::new(Vec::new());
+        let mut sink = Flatten::new(
+            ForEach::new(|x| result.borrow_mut().push(x))
+        );
+        
+        sink.send(vec![]).await.unwrap();
+        sink.send(vec![1, 2]).await.unwrap();
+        sink.send(vec![]).await.unwrap();
+        sink.send(vec![3]).await.unwrap();
+        sink.flush().await.unwrap();
+        
+        assert_eq!(*result.borrow(), vec![1, 2, 3]);
+    }
+
+    #[tokio::test]
+    async fn test_flatten_single_elements() {
+        let result = RefCell::new(Vec::new());
+        let mut sink = Flatten::new(
+            ForEach::new(|x| result.borrow_mut().push(x))
+        );
+        
+        sink.send(vec![1]).await.unwrap();
+        sink.send(vec![2]).await.unwrap();
+        sink.send(vec![3]).await.unwrap();
+        sink.flush().await.unwrap();
+        
+        assert_eq!(*result.borrow(), vec![1, 2, 3]);
+    }
+
+    #[tokio::test]
+    async fn test_flatten_with_builder() {
+        use crate::{SinkBuild, SinkBuilder};
+        let result = RefCell::new(Vec::new());
+        
+        let sink = SinkBuilder::<Vec<i32>>::new()
+            .flatten()
+            .for_each(|x| result.borrow_mut().push(x));
+        
+        let mut sink = Box::pin(sink);
+        sink.send(vec![1, 2]).await.unwrap();
+        sink.send(vec![3, 4, 5]).await.unwrap();
+        sink.flush().await.unwrap();
+        
+        assert_eq!(*result.borrow(), vec![1, 2, 3, 4, 5]);
+    }
+
+    #[tokio::test]
+    async fn test_flatten_strings() {
+        let result = RefCell::new(Vec::new());
+        let mut sink = Flatten::new(
+            ForEach::new(|x| result.borrow_mut().push(x))
+        );
+        
+        sink.send(vec!["hello".to_string(), "world".to_string()]).await.unwrap();
+        sink.send(vec!["foo".to_string()]).await.unwrap();
+        sink.flush().await.unwrap();
+        
+        assert_eq!(*result.borrow(), vec!["hello".to_string(), "world".to_string(), "foo".to_string()]);
     }
 }

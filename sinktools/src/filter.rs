@@ -67,3 +67,127 @@ where
         self.prev.send_to(Filter::new(self.func, next))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::for_each::ForEach;
+    use futures_util::SinkExt;
+    use std::cell::RefCell;
+
+    #[tokio::test]
+    async fn test_filter_even_numbers() {
+        let result = RefCell::new(Vec::new());
+        let mut sink = Filter::new(
+            |x: &i32| x % 2 == 0,
+            ForEach::new(|x| result.borrow_mut().push(x))
+        );
+        
+        SinkExt::send(&mut sink, 1).await.unwrap();
+        SinkExt::send(&mut sink, 2).await.unwrap();
+        SinkExt::send(&mut sink, 3).await.unwrap();
+        SinkExt::send(&mut sink, 4).await.unwrap();
+        SinkExt::flush(&mut sink).await.unwrap();
+        
+        assert_eq!(*result.borrow(), vec![2, 4]);
+    }
+
+    #[tokio::test]
+    async fn test_filter_all_pass() {
+        let result = RefCell::new(Vec::new());
+        let mut sink = Filter::new(
+            |_: &i32| true,
+            ForEach::new(|x| result.borrow_mut().push(x))
+        );
+        
+        SinkExt::send(&mut sink, 1).await.unwrap();
+        SinkExt::send(&mut sink, 2).await.unwrap();
+        SinkExt::flush(&mut sink).await.unwrap();
+        
+        assert_eq!(*result.borrow(), vec![1, 2]);
+    }
+
+    #[tokio::test]
+    async fn test_filter_none_pass() {
+        let result = RefCell::new(Vec::new());
+        let mut sink = Filter::new(
+            |_: &i32| false,
+            ForEach::new(|x| result.borrow_mut().push(x))
+        );
+        
+        SinkExt::send(&mut sink, 1).await.unwrap();
+        SinkExt::send(&mut sink, 2).await.unwrap();
+        SinkExt::flush(&mut sink).await.unwrap();
+        
+        assert_eq!(*result.borrow(), Vec::<i32>::new());
+    }
+
+    #[tokio::test]
+    async fn test_filter_strings() {
+        let result = RefCell::new(Vec::new());
+        let mut sink = Filter::new(
+            |s: &String| s.len() > 3,
+            ForEach::new(|x| result.borrow_mut().push(x))
+        );
+        
+        SinkExt::send(&mut sink, "hi".to_string()).await.unwrap();
+        SinkExt::send(&mut sink, "hello".to_string()).await.unwrap();
+        SinkExt::send(&mut sink, "bye".to_string()).await.unwrap();
+        SinkExt::send(&mut sink, "world".to_string()).await.unwrap();
+        SinkExt::flush(&mut sink).await.unwrap();
+        
+        assert_eq!(*result.borrow(), vec!["hello".to_string(), "world".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn test_filter_with_builder() {
+        use crate::{SinkBuild, SinkBuilder};
+        let result = RefCell::new(Vec::new());
+        
+        let sink = SinkBuilder::<i32>::new()
+            .filter(|x| *x > 5)
+            .for_each(|x| result.borrow_mut().push(x));
+        
+        let mut sink = Box::pin(sink);
+        SinkExt::send(sink.as_mut(), 3).await.unwrap();
+        SinkExt::send(sink.as_mut(), 7).await.unwrap();
+        SinkExt::send(sink.as_mut(), 10).await.unwrap();
+        SinkExt::flush(sink.as_mut()).await.unwrap();
+        
+        assert_eq!(*result.borrow(), vec![7, 10]);
+    }
+
+    #[tokio::test]
+    async fn test_filter_and_map_chain() {
+        use crate::{SinkBuild, SinkBuilder};
+        let result = RefCell::new(Vec::new());
+        
+        let sink = SinkBuilder::<i32>::new()
+            .filter(|x| *x % 2 == 0)
+            .map(|x| x * 2)
+            .for_each(|x| result.borrow_mut().push(x));
+        
+        let mut sink = Box::pin(sink);
+        SinkExt::send(sink.as_mut(), 1).await.unwrap();
+        SinkExt::send(sink.as_mut(), 2).await.unwrap();
+        SinkExt::send(sink.as_mut(), 3).await.unwrap();
+        SinkExt::send(sink.as_mut(), 4).await.unwrap();
+        SinkExt::flush(sink.as_mut()).await.unwrap();
+        
+        assert_eq!(*result.borrow(), vec![4, 8]);
+    }
+
+    #[tokio::test]
+    async fn test_filter_empty_stream() {
+        let result = RefCell::new(Vec::new());
+        let mut sink = Filter::new(
+            |x: &i32| x % 2 == 0,
+            ForEach::new(|x| result.borrow_mut().push(x))
+        );
+        
+        SinkExt::flush(&mut sink).await.unwrap();
+        SinkExt::close(&mut sink).await.unwrap();
+        
+        assert_eq!(*result.borrow(), Vec::<i32>::new());
+    }
+}

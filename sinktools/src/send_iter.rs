@@ -64,3 +64,89 @@ where
         SendIter::new(self.iter, next)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::for_each::ForEach;
+    use crate::ToSinkBuild;
+    use std::cell::RefCell;
+
+    #[tokio::test]
+    async fn test_send_iter_basic() {
+        let result = RefCell::new(Vec::new());
+        let iter = vec![1, 2, 3, 4, 5].into_iter();
+        let sink = ForEach::new(|x| result.borrow_mut().push(x));
+        
+        let send_iter = SendIter::new(iter, sink);
+        send_iter.await.unwrap();
+        
+        assert_eq!(*result.borrow(), vec![1, 2, 3, 4, 5]);
+    }
+
+    #[tokio::test]
+    async fn test_send_iter_empty() {
+        let result = RefCell::new(Vec::new());
+        let iter = Vec::<i32>::new().into_iter();
+        let sink = ForEach::new(|x| result.borrow_mut().push(x));
+        
+        let send_iter = SendIter::new(iter, sink);
+        send_iter.await.unwrap();
+        
+        assert_eq!(*result.borrow(), Vec::<i32>::new());
+    }
+
+    #[tokio::test]
+    async fn test_send_iter_range() {
+        let result = RefCell::new(Vec::new());
+        let iter = 0..5;
+        let sink = ForEach::new(|x| result.borrow_mut().push(x));
+        
+        let send_iter = SendIter::new(iter, sink);
+        send_iter.await.unwrap();
+        
+        assert_eq!(*result.borrow(), vec![0, 1, 2, 3, 4]);
+    }
+
+    #[tokio::test]
+    async fn test_send_iter_strings() {
+        let result = RefCell::new(Vec::new());
+        let iter = vec!["hello".to_string(), "world".to_string()].into_iter();
+        let sink = ForEach::new(|x| result.borrow_mut().push(x));
+        
+        let send_iter = SendIter::new(iter, sink);
+        send_iter.await.unwrap();
+        
+        assert_eq!(*result.borrow(), vec!["hello".to_string(), "world".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn test_send_iter_with_builder() {
+        let result = RefCell::new(Vec::new());
+        let iter = vec![1, 2, 3].into_iter();
+        
+        let fut = iter
+            .iter_to_sink_build()
+            .map(|x| x * 2)
+            .for_each(|x| result.borrow_mut().push(x));
+        
+        fut.await.unwrap();
+        
+        assert_eq!(*result.borrow(), vec![2, 4, 6]);
+    }
+
+    #[tokio::test]
+    async fn test_send_iter_with_filter() {
+        let result = RefCell::new(Vec::new());
+        let iter = vec![1, 2, 3, 4, 5, 6].into_iter();
+        
+        let fut = iter
+            .iter_to_sink_build()
+            .filter(|x| *x % 2 == 0)
+            .for_each(|x| result.borrow_mut().push(x));
+        
+        fut.await.unwrap();
+        
+        assert_eq!(*result.borrow(), vec![2, 4, 6]);
+    }
+}

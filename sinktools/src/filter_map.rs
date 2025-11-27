@@ -77,6 +77,8 @@ mod tests {
 
     use super::*;
     use crate::sink::SinkExt;
+    use crate::for_each::ForEach;
+    use std::cell::RefCell;
 
     #[tokio::test]
     async fn test_filter_map() {
@@ -108,5 +110,89 @@ mod tests {
         );
         println!("{}", line!());
         a.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_filter_map_parse_numbers() {
+        let result = RefCell::new(Vec::new());
+        let mut sink = FilterMap::new(
+            |s: String| s.parse::<i32>().ok(),
+            ForEach::new(|x| result.borrow_mut().push(x))
+        );
+        
+        sink.send("42".to_string()).await.unwrap();
+        sink.send("not a number".to_string()).await.unwrap();
+        sink.send("100".to_string()).await.unwrap();
+        sink.send("invalid".to_string()).await.unwrap();
+        sink.send("-5".to_string()).await.unwrap();
+        sink.flush().await.unwrap();
+        
+        assert_eq!(*result.borrow(), vec![42, 100, -5]);
+    }
+
+    #[tokio::test]
+    async fn test_filter_map_all_some() {
+        let result = RefCell::new(Vec::new());
+        let mut sink = FilterMap::new(
+            |x: i32| Some(x * 2),
+            ForEach::new(|x| result.borrow_mut().push(x))
+        );
+        
+        sink.send(1).await.unwrap();
+        sink.send(2).await.unwrap();
+        sink.send(3).await.unwrap();
+        sink.flush().await.unwrap();
+        
+        assert_eq!(*result.borrow(), vec![2, 4, 6]);
+    }
+
+    #[tokio::test]
+    async fn test_filter_map_all_none() {
+        let result = RefCell::new(Vec::new());
+        let mut sink = FilterMap::new(
+            |_x: i32| None::<i32>,
+            ForEach::new(|x| result.borrow_mut().push(x))
+        );
+        
+        sink.send(1).await.unwrap();
+        sink.send(2).await.unwrap();
+        sink.send(3).await.unwrap();
+        sink.flush().await.unwrap();
+        
+        assert_eq!(*result.borrow(), Vec::<i32>::new());
+    }
+
+    #[tokio::test]
+    async fn test_filter_map_with_builder() {
+        use crate::{SinkBuild, SinkBuilder};
+        let result = RefCell::new(Vec::new());
+        
+        let sink = SinkBuilder::<Option<i32>>::new()
+            .filter_map(|x| x.map(|y| y * 3))
+            .for_each(|x| result.borrow_mut().push(x));
+        
+        let mut sink = Box::pin(sink);
+        sink.send(Some(1)).await.unwrap();
+        sink.send(None).await.unwrap();
+        sink.send(Some(2)).await.unwrap();
+        sink.flush().await.unwrap();
+        
+        assert_eq!(*result.borrow(), vec![3, 6]);
+    }
+
+    #[tokio::test]
+    async fn test_filter_map_extract_ok() {
+        let result = RefCell::new(Vec::new());
+        let mut sink = FilterMap::new(
+            |x: Result<i32, String>| x.ok(),
+            ForEach::new(|x| result.borrow_mut().push(x))
+        );
+        
+        sink.send(Ok(10)).await.unwrap();
+        sink.send(Err("error".to_string())).await.unwrap();
+        sink.send(Ok(20)).await.unwrap();
+        sink.flush().await.unwrap();
+        
+        assert_eq!(*result.borrow(), vec![10, 20]);
     }
 }

@@ -118,3 +118,110 @@ where
         self.prev.send_to(FlatMap::new(self.func, next))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::for_each::ForEach;
+    use futures_util::SinkExt;
+    use std::cell::RefCell;
+
+    #[tokio::test]
+    async fn test_flat_map_basic() {
+        let result = RefCell::new(Vec::new());
+        let mut sink = FlatMap::new(
+            |x: i32| vec![x, x * 2, x * 3],
+            ForEach::new(|x| result.borrow_mut().push(x))
+        );
+        
+        SinkExt::send(&mut sink, 1).await.unwrap();
+        SinkExt::send(&mut sink, 2).await.unwrap();
+        SinkExt::flush(&mut sink).await.unwrap();
+        
+        assert_eq!(*result.borrow(), vec![1, 2, 3, 2, 4, 6]);
+    }
+
+    #[tokio::test]
+    async fn test_flat_map_string_chars() {
+        let result = RefCell::new(Vec::new());
+        let mut sink = FlatMap::new(
+            |s: String| s.chars().collect::<Vec<_>>(),
+            ForEach::new(|x| result.borrow_mut().push(x))
+        );
+        
+        SinkExt::send(&mut sink, "hi".to_string()).await.unwrap();
+        SinkExt::send(&mut sink, "go".to_string()).await.unwrap();
+        SinkExt::flush(&mut sink).await.unwrap();
+        
+        assert_eq!(*result.borrow(), vec!['h', 'i', 'g', 'o']);
+    }
+
+    #[tokio::test]
+    async fn test_flat_map_empty_iterators() {
+        let result = RefCell::new(Vec::new());
+        let mut sink = FlatMap::new(
+            |_x: i32| Vec::<i32>::new(),
+            ForEach::new(|x| result.borrow_mut().push(x))
+        );
+        
+        SinkExt::send(&mut sink, 1).await.unwrap();
+        SinkExt::send(&mut sink, 2).await.unwrap();
+        SinkExt::flush(&mut sink).await.unwrap();
+        
+        assert_eq!(*result.borrow(), Vec::<i32>::new());
+    }
+
+    #[tokio::test]
+    async fn test_flat_map_mixed_sizes() {
+        let result = RefCell::new(Vec::new());
+        let mut sink = FlatMap::new(
+            |x: i32| {
+                if x % 2 == 0 {
+                    vec![x]
+                } else {
+                    vec![x, x + 10, x + 20]
+                }
+            },
+            ForEach::new(|x| result.borrow_mut().push(x))
+        );
+        
+        SinkExt::send(&mut sink, 1).await.unwrap();
+        SinkExt::send(&mut sink, 2).await.unwrap();
+        SinkExt::send(&mut sink, 3).await.unwrap();
+        SinkExt::flush(&mut sink).await.unwrap();
+        
+        assert_eq!(*result.borrow(), vec![1, 11, 21, 2, 3, 13, 23]);
+    }
+
+    #[tokio::test]
+    async fn test_flat_map_with_builder() {
+        use crate::{SinkBuild, SinkBuilder};
+        let result = RefCell::new(Vec::new());
+        
+        let sink = SinkBuilder::<i32>::new()
+            .flat_map(|x| vec![x, x * 2])
+            .for_each(|x| result.borrow_mut().push(x));
+        
+        let mut sink = Box::pin(sink);
+        SinkExt::send(sink.as_mut(), 3).await.unwrap();
+        SinkExt::send(sink.as_mut(), 5).await.unwrap();
+        SinkExt::flush(sink.as_mut()).await.unwrap();
+        
+        assert_eq!(*result.borrow(), vec![3, 6, 5, 10]);
+    }
+
+    #[tokio::test]
+    async fn test_flat_map_with_range() {
+        let result = RefCell::new(Vec::new());
+        let mut sink = FlatMap::new(
+            |x: i32| 0..x,
+            ForEach::new(|x| result.borrow_mut().push(x))
+        );
+        
+        SinkExt::send(&mut sink, 3).await.unwrap();
+        SinkExt::send(&mut sink, 2).await.unwrap();
+        SinkExt::flush(&mut sink).await.unwrap();
+        
+        assert_eq!(*result.borrow(), vec![0, 1, 2, 0, 1]);
+    }
+}

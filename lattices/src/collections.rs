@@ -1222,3 +1222,163 @@ impl<K, OldVal, const N: usize> MapMapValues<OldVal> for ArrayMap<K, OldVal, N> 
 //             .map(|(_, val)| val)
 //     }
 // }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_vecset_from_vec() {
+        let vec = vec![1, 2, 3];
+        let vecset = VecSet::from(vec);
+        assert_eq!(vecset.len(), 3);
+        assert!(!vecset.is_empty());
+    }
+
+    #[test]
+    fn test_vecset_empty() {
+        let vecset = VecSet::<i32>(Vec::new());
+        assert_eq!(vecset.len(), 0);
+        assert!(vecset.is_empty());
+    }
+
+    #[test]
+    fn test_vecset_into_iter() {
+        let vecset = VecSet(vec![1, 2, 3]);
+        let collected: Vec<_> = vecset.into_iter().collect();
+        assert_eq!(collected, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn test_singleton_new() {
+        let singleton = Singleton::new("test");
+        assert_eq!(singleton.0, "test");
+    }
+
+    #[test]
+    fn test_singleton_len() {
+        let singleton = Singleton::new(42);
+        assert_eq!(singleton.len(), 1);
+        assert!(!singleton.is_empty());
+    }
+
+    #[test]
+    fn test_singleton_into_iter() {
+        let singleton = Singleton::new(100);
+        let mut iter = singleton.into_iter();
+        assert_eq!(iter.next(), Some(100));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_singletonmap_new() {
+        let map = SingletonMap::new("key", 42);
+        assert_eq!(map.key, "key");
+        assert_eq!(map.val, 42);
+    }
+
+    #[test]
+    fn test_singletonmap_len() {
+        let map = SingletonMap::new(1, "value");
+        assert_eq!(map.len(), 1);
+        assert!(!map.is_empty());
+    }
+
+    #[test]
+    fn test_singletonmap_into_iter() {
+        let map = SingletonMap::new("k", "v");
+        let mut iter = map.into_iter();
+        assert_eq!(iter.next(), Some(("k", "v")));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_optionset_new() {
+        let optset = OptionSet::new(Some(10));
+        assert_eq!(optset.0, Some(10));
+    }
+
+    #[test]
+    fn test_optionset_none() {
+        let optset = OptionSet::<i32>::new(None);
+        assert_eq!(optset.len(), 0);
+        assert!(optset.is_empty());
+    }
+
+    #[test]
+    fn test_optionset_some_len() {
+        let optset = OptionSet::new(Some(5));
+        assert_eq!(optset.len(), 1);
+        assert!(!optset.is_empty());
+    }
+
+    #[test]
+    fn test_optionset_into_iter() {
+        let optset = OptionSet::new(Some(7));
+        let collected: Vec<_> = optset.into_iter().collect();
+        assert_eq!(collected, vec![7]);
+    }
+
+    #[test]
+    fn test_optionmap_new() {
+        let map = OptionMap::new(Some(("key", 123)));
+        assert_eq!(map.0, Some(("key", 123)));
+    }
+
+    #[test]
+    fn test_optionmap_none() {
+        let map = OptionMap::<&str, i32>::new(None);
+        assert_eq!(map.len(), 0);
+        assert!(map.is_empty());
+    }
+
+    #[test]
+    fn test_optionmap_into_iter() {
+        let map = OptionMap::new(Some(("k", "v")));
+        let collected: Vec<_> = map.into_iter().collect();
+        assert_eq!(collected, vec![("k", "v")]);
+    }
+
+    #[test]
+    fn test_arraymap_new() {
+        let map = ArrayMap::<&str, i32, 2>::new(["a", "b"], [1, 2]);
+        assert_eq!(map.keys, ["a", "b"]);
+        assert_eq!(map.vals, [1, 2]);
+    }
+
+    #[test]
+    fn test_arraymap_len() {
+        let map = ArrayMap::<i32, &str, 3>::new([1, 2, 3], ["a", "b", "c"]);
+        assert_eq!(map.len(), 3);
+        assert!(!map.is_empty());
+    }
+
+    #[test]
+    fn test_arraymap_into_iter() {
+        let map = ArrayMap::<i32, &str, 2>::new([1, 2], ["x", "y"]);
+        let collected: Vec<_> = map.into_iter().collect();
+        assert_eq!(collected, vec![(1, "x"), (2, "y")]);
+    }
+
+    #[test]
+    fn test_hashmap_map_values() {
+        let mut map = HashMap::new();
+        map.insert("a", 1);
+        map.insert("b", 2);
+        
+        let mapped = map.map_values(|v| v * 2);
+        assert_eq!(mapped.get("a"), Some(&2));
+        assert_eq!(mapped.get("b"), Some(&4));
+    }
+
+    #[test]
+    fn test_btreemap_map_values() {
+        let mut map = BTreeMap::new();
+        map.insert("x", 10);
+        map.insert("y", 20);
+        
+        let mapped = map.map_values(|v| v + 5);
+        assert_eq!(mapped.get("x"), Some(&15));
+        assert_eq!(mapped.get("y"), Some(&25));
+    }
+}

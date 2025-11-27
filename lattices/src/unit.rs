@@ -43,3 +43,49 @@ impl Atomize for () {
         std::iter::empty()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_unit_deep_reveal() {
+        let unit = ();
+        let revealed = unit.deep_reveal();
+        assert_eq!(revealed, ());
+    }
+
+    #[test]
+    fn test_unit_merge_no_change() {
+        let mut unit1 = ();
+        let unit2 = ();
+        let changed = unit1.merge(unit2);
+        assert!(!changed);
+        assert_eq!(unit1, ());
+    }
+
+    #[test]
+    fn test_unit_is_bot() {
+        let unit = ();
+        assert!(unit.is_bot());
+    }
+
+    #[test]
+    fn test_unit_is_top() {
+        let unit = ();
+        assert!(unit.is_top());
+    }
+
+    #[test]
+    fn test_unit_lattice_from() {
+        let unit = <() as LatticeFrom<()>>::lattice_from(());
+        assert_eq!(unit, ());
+    }
+
+    #[test]
+    fn test_unit_atomize_empty() {
+        let unit = ();
+        let mut atoms = unit.atomize();
+        assert_eq!(atoms.next(), None);
+    }
+}
