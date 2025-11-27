@@ -278,3 +278,73 @@ impl Deployment {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_deployment_new() {
+        let deployment = Deployment::new();
+        assert_eq!(deployment.hosts.len(), 1); // Should have localhost
+        assert_eq!(deployment.services.len(), 0);
+        assert!(deployment.localhost_host.is_some());
+    }
+
+    #[test]
+    fn test_deployment_default() {
+        let deployment = Deployment::default();
+        assert!(deployment.localhost_host.is_some());
+    }
+
+    #[test]
+    fn test_localhost_accessor() {
+        let deployment = Deployment::new();
+        let localhost = deployment.Localhost();
+        assert!(Arc::strong_count(&localhost) >= 1);
+    }
+
+    #[test]
+    fn test_deployment_add_service() {
+        let mut deployment = Deployment::new();
+        let localhost = deployment.Localhost();
+        
+        let custom_service = deployment.CustomService(localhost, vec![8080]);
+        
+        assert_eq!(deployment.services.len(), 1);
+        assert!(Arc::strong_count(&custom_service) >= 1);
+    }
+
+    #[test]
+    fn test_deployment_next_ids() {
+        let mut deployment = Deployment::new();
+        
+        assert!(deployment.next_host_id >= 1); // At least 1 due to localhost
+        assert_eq!(deployment.next_service_id, 0);
+    }
+
+    #[test]
+    fn test_deployment_multiple_services() {
+        let mut deployment = Deployment::new();
+        let localhost = deployment.Localhost();
+        
+        let _service1 = deployment.CustomService(localhost.clone(), vec![8080]);
+        let _service2 = deployment.CustomService(localhost, vec![8081]);
+        
+        assert_eq!(deployment.services.len(), 2);
+    }
+
+    #[test]
+    fn test_deployment_services_different_ports() {
+        let mut deployment = Deployment::new();
+        let localhost = deployment.Localhost();
+        
+        let service1 = deployment.CustomService(localhost.clone(), vec![8080, 8081]);
+        let service2 = deployment.CustomService(localhost, vec![9090]);
+        
+        assert_ne!(
+            Arc::as_ptr(&service1) as usize,
+            Arc::as_ptr(&service2) as usize
+        );
+    }
+}

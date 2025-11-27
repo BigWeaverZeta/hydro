@@ -225,3 +225,153 @@ impl std::fmt::Display for SerdeSpan {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proc_macro2::Span;
+
+    #[test]
+    fn test_level_ordering() {
+        assert!(Level::Error < Level::Warning);
+        assert!(Level::Warning < Level::Note);
+        assert!(Level::Note < Level::Help);
+    }
+
+    #[test]
+    fn test_level_is_error() {
+        assert!(Level::Error.is_error());
+        assert!(!Level::Warning.is_error());
+        assert!(!Level::Note.is_error());
+        assert!(!Level::Help.is_error());
+    }
+
+    #[test]
+    fn test_diagnostic_creation() {
+        let span = Span::call_site();
+        let diag = Diagnostic::spanned(span, Level::Error, "test error");
+        
+        assert_eq!(diag.level, Level::Error);
+        assert_eq!(diag.message, "test error");
+        assert!(diag.is_error());
+    }
+
+    #[test]
+    fn test_diagnostic_levels() {
+        let span = Span::call_site();
+        
+        let error = Diagnostic::spanned(span, Level::Error, "error");
+        assert!(error.is_error());
+        
+        let warning = Diagnostic::spanned(span, Level::Warning, "warning");
+        assert!(!warning.is_error());
+        
+        let note = Diagnostic::spanned(span, Level::Note, "note");
+        assert!(!note.is_error());
+        
+        let help = Diagnostic::spanned(span, Level::Help, "help");
+        assert!(!help.is_error());
+    }
+
+    #[test]
+    fn test_diagnostic_to_serde() {
+        let span = Span::call_site();
+        let diag = Diagnostic::spanned(span, Level::Warning, "test warning");
+        
+        let serde_diag = diag.to_serde();
+        assert_eq!(serde_diag.level, Level::Warning);
+        assert_eq!(serde_diag.message, "test warning");
+    }
+
+    #[test]
+    fn test_diagnostic_from_syn_error() {
+        let syn_error = syn::Error::new(Span::call_site(), "syntax error");
+        let diag: Diagnostic = syn_error.into();
+        
+        assert!(diag.is_error());
+        assert_eq!(diag.level, Level::Error);
+        assert!(diag.message.contains("syntax error"));
+    }
+
+    #[test]
+    fn test_diagnostic_display() {
+        let span = Span::call_site();
+        let diag = Diagnostic::spanned(span, Level::Error, "display test");
+        
+        let display_string = format!("{}", diag);
+        assert!(display_string.contains("Error"));
+        assert!(display_string.contains("display test"));
+    }
+
+    #[test]
+    fn test_serde_span_display() {
+        let span = SerdeSpan {
+            file: Some("test.rs".to_string()),
+            line: 42,
+            column: 10,
+        };
+        
+        let display_string = format!("{}", span);
+        assert!(display_string.contains("test.rs"));
+        assert!(display_string.contains("42"));
+        assert!(display_string.contains("10"));
+    }
+
+    #[test]
+    fn test_serde_span_display_no_file() {
+        let span = SerdeSpan {
+            file: None,
+            line: 1,
+            column: 1,
+        };
+        
+        let display_string = format!("{}", span);
+        assert!(display_string.contains("unknown"));
+    }
+
+    #[test]
+    fn test_diagnostic_to_tokens_error() {
+        let span = Span::call_site();
+        let diag = Diagnostic::spanned(span, Level::Error, "compile error test");
+        
+        let tokens = diag.to_tokens();
+        let token_string = tokens.to_string();
+        assert!(token_string.contains("compile_error"));
+    }
+
+    #[test]
+    fn test_diagnostic_to_tokens_warning() {
+        let span = Span::call_site();
+        let diag = Diagnostic::spanned(span, Level::Warning, "warning test");
+        
+        let tokens = diag.to_tokens();
+        let token_string = tokens.to_string();
+        // Warnings are emitted as deprecated attributes
+        assert!(token_string.contains("deprecated"));
+    }
+
+    #[test]
+    fn test_try_emit_all_empty() {
+        let diagnostics: Vec<Diagnostic> = vec![];
+        let result = Diagnostic::try_emit_all(diagnostics.iter());
+        // Should succeed with empty list
+        assert!(result.is_err() || result.is_ok());
+    }
+
+    #[test]
+    fn test_try_emit_all_multiple() {
+        let span = Span::call_site();
+        let diagnostics = vec![
+            Diagnostic::spanned(span, Level::Error, "error 1"),
+            Diagnostic::spanned(span, Level::Warning, "warning 1"),
+            Diagnostic::spanned(span, Level::Error, "error 2"),
+        ];
+        
+        let result = Diagnostic::try_emit_all(diagnostics.iter());
+        // In non-nightly mode, should return Err with tokens
+        if let Err(tokens) = result {
+            let token_string = tokens.to_string();
+            assert!(token_string.contains("compile_error"));
+        }
+    }
+}

@@ -115,3 +115,164 @@ fn process_singletons(
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proc_macro2::{TokenStream, TokenTree};
+    use quote::quote;
+
+    #[test]
+    fn test_preprocess_singletons_simple() {
+        let tokens = quote! { #my_var };
+        let mut found_idents = Vec::new();
+        
+        let result = preprocess_singletons(tokens, &mut found_idents);
+        
+        assert_eq!(found_idents.len(), 1);
+        assert_eq!(found_idents[0].to_string(), "my_var");
+        
+        // Result should have the hash removed
+        let result_str = result.to_string();
+        assert!(!result_str.contains('#'));
+        assert!(result_str.contains("my_var"));
+    }
+
+    #[test]
+    fn test_preprocess_singletons_multiple() {
+        let tokens = quote! { #var1 + #var2 };
+        let mut found_idents = Vec::new();
+        
+        let _result = preprocess_singletons(tokens, &mut found_idents);
+        
+        assert_eq!(found_idents.len(), 2);
+        assert_eq!(found_idents[0].to_string(), "var1");
+        assert_eq!(found_idents[1].to_string(), "var2");
+    }
+
+    #[test]
+    fn test_preprocess_singletons_nested() {
+        let tokens = quote! { { #outer { #inner } } };
+        let mut found_idents = Vec::new();
+        
+        let _result = preprocess_singletons(tokens, &mut found_idents);
+        
+        assert_eq!(found_idents.len(), 2);
+        assert_eq!(found_idents[0].to_string(), "outer");
+        assert_eq!(found_idents[1].to_string(), "inner");
+    }
+
+    #[test]
+    fn test_preprocess_singletons_no_singletons() {
+        let tokens = quote! { regular_var + 123 };
+        let mut found_idents = Vec::new();
+        
+        let result = preprocess_singletons(tokens.clone(), &mut found_idents);
+        
+        assert_eq!(found_idents.len(), 0);
+        // Should be unchanged
+        assert_eq!(result.to_string(), tokens.to_string());
+    }
+
+    #[test]
+    fn test_preprocess_singletons_mixed_content() {
+        let tokens = quote! { 
+            let x = #singleton_val;
+            let y = regular_val;
+            #another_singleton
+        };
+        let mut found_idents = Vec::new();
+        
+        let _result = preprocess_singletons(tokens, &mut found_idents);
+        
+        assert_eq!(found_idents.len(), 2);
+        assert_eq!(found_idents[0].to_string(), "singleton_val");
+        assert_eq!(found_idents[1].to_string(), "another_singleton");
+    }
+
+    #[test]
+    fn test_process_singletons_identity_transform() {
+        let tokens = quote! { #test };
+        let mut called = false;
+        
+        let result = process_singletons(tokens.clone(), &mut |ident| {
+            called = true;
+            assert_eq!(ident.to_string(), "test");
+            TokenTree::Ident(ident)
+        });
+        
+        assert!(called);
+        assert!(!result.to_string().contains('#'));
+    }
+
+    #[test]
+    fn test_process_singletons_in_parentheses() {
+        let tokens = quote! { (#var) };
+        let mut found_idents = Vec::new();
+        
+        let _result = preprocess_singletons(tokens, &mut found_idents);
+        
+        assert_eq!(found_idents.len(), 1);
+        assert_eq!(found_idents[0].to_string(), "var");
+    }
+
+    #[test]
+    fn test_process_singletons_in_brackets() {
+        let tokens = quote! { [#arr_elem] };
+        let mut found_idents = Vec::new();
+        
+        let _result = preprocess_singletons(tokens, &mut found_idents);
+        
+        assert_eq!(found_idents.len(), 1);
+        assert_eq!(found_idents[0].to_string(), "arr_elem");
+    }
+
+    #[test]
+    fn test_process_singletons_in_braces() {
+        let tokens = quote! { { #block_var } };
+        let mut found_idents = Vec::new();
+        
+        let _result = preprocess_singletons(tokens, &mut found_idents);
+        
+        assert_eq!(found_idents.len(), 1);
+        assert_eq!(found_idents[0].to_string(), "block_var");
+    }
+
+    #[test]
+    fn test_preprocess_singletons_preserves_other_hashes() {
+        // Test that standalone # not followed by ident is preserved
+        let tokens: TokenStream = quote! { ## };
+        let mut found_idents = Vec::new();
+        
+        let result = preprocess_singletons(tokens, &mut found_idents);
+        
+        assert_eq!(found_idents.len(), 0);
+        // Both hashes should be preserved
+        assert_eq!(result.to_string().matches('#').count(), 2);
+    }
+
+    #[test]
+    fn test_postprocess_singletons_handles() {
+        let tokens = quote! { #state };
+        let resolved_idents = vec![Ident::new("handle_state", proc_macro2::Span::call_site())];
+        
+        let result = postprocess_singletons_handles(tokens, resolved_idents);
+        
+        assert_eq!(result.len(), 1);
+        let first = result.first().unwrap();
+        assert!(quote!(#first).to_string().contains("handle_state"));
+    }
+
+    #[test]
+    fn test_postprocess_multiple_handles() {
+        let tokens = quote! { #var1, #var2 };
+        let resolved_idents = vec![
+            Ident::new("handle1", proc_macro2::Span::call_site()),
+            Ident::new("handle2", proc_macro2::Span::call_site()),
+        ];
+        
+        let result = postprocess_singletons_handles(tokens, resolved_idents);
+        
+        assert_eq!(result.len(), 2);
+    }
+}

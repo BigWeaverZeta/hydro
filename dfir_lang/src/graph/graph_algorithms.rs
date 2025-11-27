@@ -321,4 +321,183 @@ mod test {
 
         assert_eq!(scc[&'f'], scc[&'g']);
     }
+
+    #[test]
+    fn test_topo_sort_simple() {
+        // Simple DAG: a -> b -> c
+        let edges = vec![('a', 'b'), ('b', 'c')];
+        
+        let result = topo_sort(
+            vec!['a', 'b', 'c'],
+            |v| {
+                edges
+                    .iter()
+                    .filter(move |&&(_, dst)| v == dst)
+                    .map(|&(src, _)| src)
+            },
+        );
+        
+        assert!(result.is_ok());
+        let order = result.unwrap();
+        assert_eq!(order.len(), 3);
+        
+        // a must come before b, b before c
+        let a_pos = order.iter().position(|&x| x == 'a').unwrap();
+        let b_pos = order.iter().position(|&x| x == 'b').unwrap();
+        let c_pos = order.iter().position(|&x| x == 'c').unwrap();
+        assert!(a_pos < b_pos);
+        assert!(b_pos < c_pos);
+    }
+
+    #[test]
+    fn test_topo_sort_with_cycle() {
+        // Cycle: a -> b -> a
+        let edges = vec![('a', 'b'), ('b', 'a')];
+        
+        let result = topo_sort(
+            vec!['a', 'b'],
+            |v| {
+                edges
+                    .iter()
+                    .filter(move |&&(_, dst)| v == dst)
+                    .map(|&(src, _)| src)
+            },
+        );
+        
+        assert!(result.is_err());
+        let cycle = result.unwrap_err();
+        assert!(!cycle.is_empty());
+    }
+
+    #[test]
+    fn test_topo_sort_disconnected() {
+        // Two disconnected components: a -> b and c -> d
+        let edges = vec![('a', 'b'), ('c', 'd')];
+        
+        let result = topo_sort(
+            vec!['a', 'b', 'c', 'd'],
+            |v| {
+                edges
+                    .iter()
+                    .filter(move |&&(_, dst)| v == dst)
+                    .map(|&(src, _)| src)
+            },
+        );
+        
+        assert!(result.is_ok());
+        let order = result.unwrap();
+        assert_eq!(order.len(), 4);
+        
+        // Within each component, order must be preserved
+        let a_pos = order.iter().position(|&x| x == 'a').unwrap();
+        let b_pos = order.iter().position(|&x| x == 'b').unwrap();
+        let c_pos = order.iter().position(|&x| x == 'c').unwrap();
+        let d_pos = order.iter().position(|&x| x == 'd').unwrap();
+        assert!(a_pos < b_pos);
+        assert!(c_pos < d_pos);
+    }
+
+    #[test]
+    fn test_topo_sort_empty() {
+        let result = topo_sort(
+            Vec::<i32>::new(),
+            |_| Vec::<i32>::new(),
+        );
+        
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().len(), 0);
+    }
+
+    #[test]
+    fn test_topo_sort_single_node() {
+        let result = topo_sort(
+            vec![1],
+            |_| Vec::<i32>::new(),
+        );
+        
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), vec![1]);
+    }
+
+    #[test]
+    fn test_topo_sort_scc_with_cycle() {
+        // Graph with cycle: a -> b -> a, c -> a
+        let edges = vec![('a', 'b'), ('b', 'a'), ('c', 'a')];
+        
+        let result = topo_sort_scc(
+            || vec!['a', 'b', 'c'],
+            |v| {
+                edges
+                    .iter()
+                    .filter(move |&&(_, dst)| v == dst)
+                    .map(|&(src, _)| src)
+            },
+            |u| {
+                edges
+                    .iter()
+                    .filter(move |&&(src, _)| u == src)
+                    .map(|&(_, dst)| dst)
+            },
+        );
+        
+        // Should not panic with cycles
+        assert!(!result.is_empty());
+    }
+
+    #[test]
+    fn test_topo_sort_scc_dag() {
+        // DAG: a -> b -> c
+        let edges = vec![('a', 'b'), ('b', 'c')];
+        
+        let result = topo_sort_scc(
+            || vec!['a', 'b', 'c'],
+            |v| {
+                edges
+                    .iter()
+                    .filter(move |&&(_, dst)| v == dst)
+                    .map(|&(src, _)| src)
+            },
+            |u| {
+                edges
+                    .iter()
+                    .filter(move |&&(src, _)| u == src)
+                    .map(|&(_, dst)| dst)
+            },
+        );
+        
+        assert_eq!(result.len(), 3);
+        let a_pos = result.iter().position(|&x| x == 'a').unwrap();
+        let b_pos = result.iter().position(|&x| x == 'b').unwrap();
+        let c_pos = result.iter().position(|&x| x == 'c').unwrap();
+        assert!(a_pos < b_pos);
+        assert!(b_pos < c_pos);
+    }
+
+    #[test]
+    fn test_scc_kosaraju_single_node() {
+        let scc = scc_kosaraju(
+            vec![1],
+            |_| Vec::<i32>::new(),
+            |_| Vec::<i32>::new(),
+        );
+        
+        assert_eq!(scc.len(), 1);
+        assert!(scc.contains_key(&1));
+    }
+
+    #[test]
+    fn test_scc_kosaraju_no_edges() {
+        let scc = scc_kosaraju(
+            vec![1, 2, 3],
+            |_| Vec::<i32>::new(),
+            |_| Vec::<i32>::new(),
+        );
+        
+        assert_eq!(scc.len(), 3);
+        // Each node should be in its own SCC
+        assert_ne!(scc[&1], scc[&2]);
+        assert_ne!(scc[&1], scc[&3]);
+        assert_ne!(scc[&2], scc[&3]);
+    }
 }
+

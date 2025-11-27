@@ -323,3 +323,153 @@ where
     V: Key,
     E: Key,
 = SlotMap<E, (V, V)>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use slotmap::{new_key_type, SlotMap};
+
+    new_key_type! {
+        struct VertexKey;
+        struct EdgeKey;
+    }
+
+    #[test]
+    fn test_dimulgraph_new() {
+        let graph = DiMulGraph::<VertexKey, EdgeKey>::default();
+        assert_eq!(graph.edges.len(), 0);
+    }
+
+    #[test]
+    fn test_dimulgraph_insert_edge() {
+        let mut vertices = SlotMap::new();
+        let v1 = vertices.insert(());
+        let v2 = vertices.insert(());
+        
+        let mut graph = DiMulGraph::<VertexKey, EdgeKey>::default();
+        let edge = graph.insert(v1, v2);
+        
+        assert!(graph.edges.contains_key(edge));
+        assert_eq!(graph.edge_src(edge), v1);
+        assert_eq!(graph.edge_dst(edge), v2);
+    }
+
+    #[test]
+    fn test_dimulgraph_successors() {
+        let mut vertices = SlotMap::new();
+        let v1 = vertices.insert(());
+        let v2 = vertices.insert(());
+        let v3 = vertices.insert(());
+        
+        let mut graph = DiMulGraph::<VertexKey, EdgeKey>::default();
+        let e1 = graph.insert(v1, v2);
+        let e2 = graph.insert(v1, v3);
+        
+        let succs: Vec<_> = graph.vertex_succs(v1).collect();
+        assert_eq!(succs.len(), 2);
+        assert!(succs.contains(&e1));
+        assert!(succs.contains(&e2));
+    }
+
+    #[test]
+    fn test_dimulgraph_predecessors() {
+        let mut vertices = SlotMap::new();
+        let v1 = vertices.insert(());
+        let v2 = vertices.insert(());
+        let v3 = vertices.insert(());
+        
+        let mut graph = DiMulGraph::<VertexKey, EdgeKey>::default();
+        let e1 = graph.insert(v1, v3);
+        let e2 = graph.insert(v2, v3);
+        
+        let preds: Vec<_> = graph.vertex_preds(v3).collect();
+        assert_eq!(preds.len(), 2);
+        assert!(preds.contains(&e1));
+        assert!(preds.contains(&e2));
+    }
+
+    #[test]
+    fn test_dimulgraph_remove_edge() {
+        let mut vertices = SlotMap::new();
+        let v1 = vertices.insert(());
+        let v2 = vertices.insert(());
+        
+        let mut graph = DiMulGraph::<VertexKey, EdgeKey>::default();
+        let edge = graph.insert(v1, v2);
+        
+        assert!(graph.edges.contains_key(edge));
+        graph.remove(edge);
+        assert!(!graph.edges.contains_key(edge));
+    }
+
+    #[test]
+    fn test_dimulgraph_vertex_degree() {
+        let mut vertices = SlotMap::new();
+        let v1 = vertices.insert(());
+        let v2 = vertices.insert(());
+        
+        let mut graph = DiMulGraph::<VertexKey, EdgeKey>::default();
+        graph.insert(v1, v2);
+        graph.insert(v1, v2); // Multi-edge
+        
+        assert_eq!(graph.vertex_successor_count(v1), 2);
+        assert_eq!(graph.vertex_predecessor_count(v2), 2);
+    }
+
+    #[test]
+    fn test_dimulgraph_isolated_vertex() {
+        let mut vertices = SlotMap::new();
+        let v1 = vertices.insert(());
+        
+        let graph = DiMulGraph::<VertexKey, EdgeKey>::default();
+        
+        assert_eq!(graph.vertex_successor_count(v1), 0);
+        assert_eq!(graph.vertex_predecessor_count(v1), 0);
+    }
+
+    #[test]
+    fn test_dimulgraph_self_loop() {
+        let mut vertices = SlotMap::new();
+        let v1 = vertices.insert(());
+        
+        let mut graph = DiMulGraph::<VertexKey, EdgeKey>::default();
+        let edge = graph.insert(v1, v1);
+        
+        assert_eq!(graph.edge_src(edge), v1);
+        assert_eq!(graph.edge_dst(edge), v1);
+        
+        // Should appear in both successors and predecessors
+        assert_eq!(graph.vertex_successor_count(v1), 1);
+        assert_eq!(graph.vertex_predecessor_count(v1), 1);
+    }
+
+    #[test]
+    fn test_dimulgraph_from_edge_list() {
+        let mut vertices = SlotMap::new();
+        let v1 = vertices.insert(());
+        let v2 = vertices.insert(());
+        
+        let mut edges = SlotMap::new();
+        let e1 = edges.insert((v1, v2));
+        
+        let graph = DiMulGraph::<VertexKey, EdgeKey>::from(edges);
+        
+        assert!(graph.edges.contains_key(e1));
+        assert_eq!(graph.vertex_successor_count(v1), 1);
+        assert_eq!(graph.vertex_predecessor_count(v2), 1);
+    }
+
+    #[test]
+    fn test_dimulgraph_into_edge_list() {
+        let mut vertices = SlotMap::new();
+        let v1 = vertices.insert(());
+        let v2 = vertices.insert(());
+        
+        let mut graph = DiMulGraph::<VertexKey, EdgeKey>::default();
+        let edge = graph.insert(v1, v2);
+        
+        let edge_list: EdgeList<VertexKey, EdgeKey> = graph.into();
+        assert!(edge_list.contains_key(edge));
+        assert_eq!(edge_list[edge], (v1, v2));
+    }
+}

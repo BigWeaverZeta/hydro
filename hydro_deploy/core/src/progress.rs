@@ -512,3 +512,147 @@ impl ProgressTracker {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_leaf_status_equality() {
+        assert_eq!(LeafStatus::Started, LeafStatus::Started);
+        assert_eq!(LeafStatus::Finished, LeafStatus::Finished);
+        assert_ne!(LeafStatus::Started, LeafStatus::Finished);
+    }
+
+    #[test]
+    fn test_bar_tree_root_status() {
+        let root = BarTree::Root(vec![]);
+        assert_eq!(root.status(), LeafStatus::Started);
+    }
+
+    #[test]
+    fn test_bar_tree_finished_status() {
+        let finished = BarTree::Finished;
+        assert_eq!(finished.status(), LeafStatus::Finished);
+    }
+
+    #[test]
+    fn test_bar_tree_leaf_status() {
+        let pb = Arc::new(indicatif::ProgressBar::new(100));
+        let leaf_started = BarTree::Leaf("test".to_string(), pb.clone(), LeafStatus::Started);
+        assert_eq!(leaf_started.status(), LeafStatus::Started);
+        
+        let leaf_finished = BarTree::Leaf("test".to_string(), pb, LeafStatus::Finished);
+        assert_eq!(leaf_finished.status(), LeafStatus::Finished);
+    }
+
+    #[test]
+    fn test_bar_tree_get_pb_root() {
+        let root = BarTree::Root(vec![]);
+        assert!(root.get_pb().is_none());
+    }
+
+    #[test]
+    fn test_bar_tree_get_pb_leaf() {
+        let pb = Arc::new(indicatif::ProgressBar::new(100));
+        let leaf = BarTree::Leaf("test".to_string(), pb.clone(), LeafStatus::Started);
+        assert!(leaf.get_pb().is_some());
+    }
+
+    #[test]
+    fn test_bar_tree_get_pb_group() {
+        let pb = Arc::new(indicatif::ProgressBar::new(100));
+        let group = BarTree::Group("group".to_string(), pb.clone(), vec![], None);
+        assert!(group.get_pb().is_some());
+    }
+
+    #[test]
+    fn test_bar_tree_get_pb_finished() {
+        let finished = BarTree::Finished;
+        assert!(finished.get_pb().is_none());
+    }
+
+    #[test]
+    fn test_bar_tree_group_all_finished() {
+        let pb = Arc::new(indicatif::ProgressBar::new(100));
+        let pb2 = Arc::new(indicatif::ProgressBar::new(100));
+        
+        let child1 = BarTree::Leaf("child1".to_string(), pb.clone(), LeafStatus::Finished);
+        let child2 = BarTree::Leaf("child2".to_string(), pb2, LeafStatus::Finished);
+        
+        let group = BarTree::Group(
+            "group".to_string(),
+            pb,
+            vec![child1, child2],
+            Some(2),
+        );
+        
+        assert_eq!(group.status(), LeafStatus::Finished);
+    }
+
+    #[test]
+    fn test_bar_tree_group_partially_finished() {
+        let pb = Arc::new(indicatif::ProgressBar::new(100));
+        let pb2 = Arc::new(indicatif::ProgressBar::new(100));
+        
+        let child1 = BarTree::Leaf("child1".to_string(), pb.clone(), LeafStatus::Finished);
+        let child2 = BarTree::Leaf("child2".to_string(), pb2, LeafStatus::Started);
+        
+        let group = BarTree::Group(
+            "group".to_string(),
+            pb,
+            vec![child1, child2],
+            Some(2),
+        );
+        
+        assert_eq!(group.status(), LeafStatus::Started);
+    }
+
+    #[test]
+    fn test_bar_tree_empty_group() {
+        let pb = Arc::new(indicatif::ProgressBar::new(100));
+        let group = BarTree::Group("empty".to_string(), pb, vec![], None);
+        
+        // Empty group should be considered started
+        assert_eq!(group.status(), LeafStatus::Started);
+    }
+
+    #[test]
+    fn test_progress_tracker_new() {
+        let tracker = ProgressTracker::new();
+        // Should be created successfully (basic smoke test)
+        drop(tracker);
+    }
+
+    #[tokio::test]
+    async fn test_progress_with_group_basic() {
+        let result = ProgressTracker::rich_leaf("test_task", 100, |_set_progress, _set_msg| async {
+            42
+        })
+        .await;
+        
+        assert_eq!(result, 42);
+    }
+
+    #[tokio::test]
+    async fn test_progress_with_group_nested() {
+        let result = ProgressTracker::with_group("outer", Some(1), || async {
+            ProgressTracker::rich_leaf("inner", 100, |_set_progress, _set_msg| async { 10 }).await
+        })
+        .await;
+        
+        assert_eq!(result, 10);
+    }
+
+    #[tokio::test]
+    async fn test_progress_println() {
+        ProgressTracker::println("test message");
+        // Should not panic
+    }
+
+    #[tokio::test]
+    async fn test_progress_leaf_completes() {
+        let result = ProgressTracker::leaf("simple_task", || async { "done" }).await;
+        assert_eq!(result, "done");
+    }
+}

@@ -127,4 +127,178 @@ mod test {
 
         assert_eq!(wait_again.await.unwrap(), None);
     }
+
+    #[tokio::test]
+    async fn test_async_retry_success_first_try() {
+        let mut attempts = 0;
+        let result = async_retry(
+            || async {
+                attempts += 1;
+                Ok::<i32, String>(42)
+            },
+            3,
+            Duration::from_millis(10),
+        )
+        .await;
+
+        assert_eq!(result, Ok(42));
+        assert_eq!(attempts, 1);
+    }
+
+    #[tokio::test]
+    async fn test_async_retry_success_after_failures() {
+        let mut attempts = 0;
+        let result = async_retry(
+            || async {
+                attempts += 1;
+                if attempts < 3 {
+                    Err("not yet")
+                } else {
+                    Ok(100)
+                }
+            },
+            5,
+            Duration::from_millis(10),
+        )
+        .await;
+
+        assert_eq!(result, Ok(100));
+        assert_eq!(attempts, 3);
+    }
+
+    #[tokio::test]
+    async fn test_async_retry_all_failures() {
+        let mut attempts = 0;
+        let result = async_retry(
+            || async {
+                attempts += 1;
+                Err::<i32, &str>("always fails")
+            },
+            3,
+            Duration::from_millis(10),
+        )
+        .await;
+
+        assert_eq!(result, Err("always fails"));
+        assert_eq!(attempts, 3);
+    }
+
+    #[tokio::test]
+    async fn test_async_retry_single_attempt() {
+        let mut attempts = 0;
+        let result = async_retry(
+            || async {
+                attempts += 1;
+                Err::<i32, &str>("fails")
+            },
+            1,
+            Duration::from_millis(10),
+        )
+        .await;
+
+        assert_eq!(result, Err("fails"));
+        assert_eq!(attempts, 1);
+    }
+
+    #[tokio::test]
+    async fn test_priority_broadcast_basic() {
+        let (tx, rx) = mpsc::unbounded_channel();
+        let broadcast = prioritized_broadcast(UnboundedReceiverStream::new(rx), |_| {});
+
+        let mut receiver = broadcast.receive(None);
+
+        tx.send(Ok("message1".to_string())).unwrap();
+        tx.send(Ok("message2".to_string())).unwrap();
+
+        assert_eq!(receiver.recv().await, Some("message1".to_string()));
+        assert_eq!(receiver.recv().await, Some("message2".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_priority_broadcast_with_prefix() {
+        let (tx, rx) = mpsc::unbounded_channel();
+        let broadcast = prioritized_broadcast(UnboundedReceiverStream::new(rx), |_| {});
+
+        let mut receiver = broadcast.receive(Some("[PREFIX]".to_string()));
+
+        tx.send(Ok("[PREFIX] matched".to_string())).unwrap();
+        tx.send(Ok("not matched".to_string())).unwrap();
+        tx.send(Ok("[PREFIX] also matched".to_string())).unwrap();
+
+        assert_eq!(receiver.recv().await, Some("[PREFIX] matched".to_string()));
+        assert_eq!(
+            receiver.recv().await,
+            Some("[PREFIX] also matched".to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn test_priority_broadcast_priority_receiver() {
+        let (tx, rx) = mpsc::unbounded_channel();
+        let broadcast = prioritized_broadcast(UnboundedReceiverStream::new(rx), |_| {});
+
+        let priority_rx = broadcast.receive_priority();
+        let mut normal_rx = broadcast.receive(None);
+
+        tx.send(Ok("priority message".to_string())).unwrap();
+
+        // Priority receiver should get the message
+        assert_eq!(
+            priority_rx.await,
+            Ok("priority message".to_string())
+        );
+
+        // Normal receiver should not get it since priority took it
+        tx.send(Ok("normal message".to_string())).unwrap();
+        assert_eq!(normal_rx.recv().await, Some("normal message".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_priority_broadcast_fallback() {
+        let (tx, rx) = mpsc::unbounded_channel();
+        let fallback_called = Arc::new(Mutex::new(Vec::new()));
+        let fallback_called_clone = fallback_called.clone();
+
+        let _broadcast = prioritized_broadcast(UnboundedReceiverStream::new(rx), move |msg| {
+            fallback_called_clone.lock().unwrap().push(msg);
+        });
+
+        // No receivers, so fallback should be called
+        tx.send(Ok("fallback message".to_string())).unwrap();
+
+        // Give it time to process
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        let messages = fallback_called.lock().unwrap();
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0], "fallback message");
+    }
+
+    #[tokio::test]
+    async fn test_priority_broadcast_multiple_receivers() {
+        let (tx, rx) = mpsc::unbounded_channel();
+        let broadcast = prioritized_broadcast(UnboundedReceiverStream::new(rx), |_| {});
+
+        let mut rx1 = broadcast.receive(None);
+        let mut rx2 = broadcast.receive(None);
+
+        tx.send(Ok("broadcast".to_string())).unwrap();
+
+        // Both receivers should get the message
+        assert_eq!(rx1.recv().await, Some("broadcast".to_string()));
+        assert_eq!(rx2.recv().await, Some("broadcast".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_priority_broadcast_cloning() {
+        let (tx, rx) = mpsc::unbounded_channel();
+        let broadcast = prioritized_broadcast(UnboundedReceiverStream::new(rx), |_| {});
+
+        let broadcast_clone = broadcast.clone();
+        let mut receiver = broadcast_clone.receive(None);
+
+        tx.send(Ok("clone test".to_string())).unwrap();
+
+        assert_eq!(receiver.recv().await, Some("clone test".to_string()));
+    }
 }
