@@ -23,3 +23,4 @@ Hydro integrates naturally with standard Rust constructs and IDEs, providing typ
 # Contributing
 
 For Hydro development setup and contribution info, see [CONTRIBUTING.md](CONTRIBUTING.md).
+neilkulk
