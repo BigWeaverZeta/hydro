@@ -53,9 +53,10 @@ variadics = { path = "../variadics", version = "^0.0.9" }
 web-time = "1.0.0"
 
 # added to workaround `cargo smart-release` https://github.com/Byron/cargo-smart-release/issues/36
-multiplatform_test = { path = "../multiplatform_test", version = "^0.5.0", optional = true }
-include_mdtests = { path = "../include_mdtests", version = "^0.0.0", optional = true }
-example_test = { path = "../example_test", version = "^0.0.0", optional = true }
+# NOTE: Test frameworks migrated to cuddly-giggle repository
+multiplatform_test = { path = "../../cuddly-giggle/test_frameworks/multiplatform_test", version = "^0.5.0", optional = true }
+include_mdtests = { path = "../../cuddly-giggle/test_frameworks/include_mdtests", version = "^0.0.0", optional = true }
+example_test = { path = "../../cuddly-giggle/test_frameworks/example_test", version = "^0.0.0", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio = { version = "1.29.0", features = [ "io-std", "fs" ] }
@@ -75,10 +76,11 @@ dfir_lang = { path = "../dfir_lang", version = "^0.14.0", features = [ "clap-der
 chrono = { version = "0.4.20", features = [ "serde", "clock" ], default-features = false }
 clap = { version = "4.5.4", features = [ "derive" ] }
 colored = "2.0"
-example_test = { path = "../example_test", version = "^0.0.0" }
-include_mdtests = { path = "../include_mdtests", version = "^0.0.0" }
+# NOTE: Test frameworks migrated to cuddly-giggle repository
+example_test = { path = "../../cuddly-giggle/test_frameworks/example_test", version = "^0.0.0" }
+include_mdtests = { path = "../../cuddly-giggle/test_frameworks/include_mdtests", version = "^0.0.0" }
 hydro_build_utils = { path = "../hydro_build_utils", version = "0.0.1" }
-multiplatform_test = { path = "../multiplatform_test", version = "^0.5.0" }
+multiplatform_test = { path = "../../cuddly-giggle/test_frameworks/multiplatform_test", version = "^0.5.0" }
 rand = { version = "0.8.0", features = [ "small_rng" ] }
 rand_distr = "0.4.3"
 regex = "1.10.4"
