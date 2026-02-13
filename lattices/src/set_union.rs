@@ -309,4 +309,136 @@ mod test {
             items_b,
         );
     }
+
+    #[test]
+    fn set_union_empty_is_bot() {
+        let s = SetUnionHashSet::<usize>::default();
+        assert!(s.is_bot());
+        assert!(!s.is_top());
+    }
+
+    #[test]
+    fn set_union_never_top() {
+        let s = SetUnionHashSet::new_from([1, 2, 3]);
+        assert!(!s.is_top());
+    }
+
+    #[test]
+    fn set_union_merge_idempotent() {
+        let mut a = SetUnionHashSet::new_from([1, 2, 3]);
+        let b = SetUnionHashSet::new_from([1, 2, 3]);
+        assert!(!a.merge(b));
+    }
+
+    #[test]
+    fn set_union_merge_union() {
+        let mut a = SetUnionHashSet::new_from([1, 2]);
+        let b = SetUnionHashSet::new_from([3, 4]);
+        assert!(a.merge(b));
+        let set = a.into_reveal();
+        assert!(set.contains(&1));
+        assert!(set.contains(&2));
+        assert!(set.contains(&3));
+        assert!(set.contains(&4));
+    }
+
+    #[test]
+    fn set_union_merge_subset_no_change() {
+        let mut a = SetUnionHashSet::new_from([1, 2, 3]);
+        let b = SetUnionHashSet::new_from([1, 2]);
+        assert!(!a.merge(b));
+    }
+
+    #[test]
+    fn set_union_partial_ord_subset() {
+        let a = SetUnionHashSet::new_from([1]);
+        let b = SetUnionHashSet::new_from([1, 2]);
+        assert_eq!(a.partial_cmp(&b), Some(Less));
+        assert_eq!(b.partial_cmp(&a), Some(Greater));
+    }
+
+    #[test]
+    fn set_union_partial_ord_incomparable() {
+        let a = SetUnionHashSet::new_from([1]);
+        let b = SetUnionHashSet::new_from([2]);
+        assert_eq!(a.partial_cmp(&b), None);
+    }
+
+    #[test]
+    fn set_union_partial_eq() {
+        let a = SetUnionHashSet::new_from([1, 2]);
+        let b = SetUnionHashSet::new_from([2, 1]);
+        assert_eq!(a, b);
+
+        let c = SetUnionHashSet::new_from([1, 3]);
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn set_union_deep_reveal() {
+        use crate::DeepReveal;
+        let s = SetUnionHashSet::new_from([1, 2, 3]);
+        let revealed = s.deep_reveal();
+        assert_eq!(revealed.len(), 3);
+    }
+
+    #[test]
+    fn set_union_new_from_vec() {
+        let s = SetUnionVec::new_from(vec![1, 2, 3]);
+        assert_eq!(s.as_reveal_ref().len(), 3);
+    }
+
+    #[test]
+    fn set_union_as_reveal_mut() {
+        let mut s = SetUnionHashSet::new_from([1]);
+        s.as_reveal_mut().insert(2);
+        assert!(s.as_reveal_ref().contains(&2));
+    }
+
+    #[test]
+    fn set_union_into_reveal() {
+        let s = SetUnionHashSet::new_from([1, 2]);
+        let inner = s.into_reveal();
+        assert!(inner.contains(&1));
+        assert!(inner.contains(&2));
+    }
+
+    #[test]
+    fn set_union_lattice_from_btree_to_hash() {
+        let btree = SetUnionBTreeSet::new_from([1, 2, 3]);
+        let hash: SetUnionHashSet<i32> = LatticeFrom::lattice_from(btree);
+        assert_eq!(hash.as_reveal_ref().len(), 3);
+    }
+
+    #[test]
+    fn set_union_merge_btree_into_hash() {
+        let mut hash = SetUnionHashSet::new_from([1]);
+        let btree = SetUnionBTreeSet::new_from([2, 3]);
+        assert!(hash.merge(btree));
+        assert_eq!(hash.as_reveal_ref().len(), 3);
+    }
+
+    #[test]
+    fn set_union_merge_singleton_into_hash() {
+        let mut hash = SetUnionHashSet::new_from([1]);
+        let singleton = SetUnionSingletonSet::new_from(2);
+        assert!(hash.merge(singleton));
+        assert!(hash.as_reveal_ref().contains(&2));
+    }
+
+    #[test]
+    fn set_union_atomize_empty() {
+        use crate::Atomize;
+        let s = SetUnionHashSet::<i32>::default();
+        let atoms: Vec<_> = s.atomize().collect();
+        assert!(atoms.is_empty());
+    }
+
+    #[test]
+    fn set_union_atomize_singleton() {
+        use crate::Atomize;
+        let s = SetUnionHashSet::new_from([42]);
+        let atoms: Vec<_> = s.atomize().collect();
+        assert_eq!(atoms.len(), 1);
+    }
 }

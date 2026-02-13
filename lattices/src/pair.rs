@@ -72,7 +72,7 @@ mod test {
     use super::*;
     use crate::set_union::{SetUnionBTreeSet, SetUnionHashSet, SetUnionSingletonSet};
     use crate::test::{check_all, check_lattice_bimorphism};
-    use crate::{Merge, WithTop};
+    use crate::{Max, Merge, Min, WithTop};
 
     #[test]
     fn consistency() {
@@ -148,5 +148,95 @@ mod test {
         check_lattice_bimorphism(PairBimorphism, items_a, items_b);
         check_lattice_bimorphism(PairBimorphism, items_b, items_a);
         check_lattice_bimorphism(PairBimorphism, items_b, items_b);
+    }
+
+    #[test]
+    fn pair_new_and_reveal() {
+        let p = Pair::new(Max::new(10), Min::new(20));
+        let (a, b) = p.as_reveal_ref();
+        assert_eq!(*a.as_reveal_ref(), 10);
+        assert_eq!(*b.as_reveal_ref(), 20);
+    }
+
+    #[test]
+    fn pair_into_reveal() {
+        let p = Pair::new(Max::new(10), Min::new(20));
+        let (a, b) = p.into_reveal();
+        assert_eq!(a.into_reveal(), 10);
+        assert_eq!(b.into_reveal(), 20);
+    }
+
+    #[test]
+    fn pair_as_reveal_mut() {
+        let mut p = Pair::new(
+            SetUnionHashSet::new_from([1]),
+            SetUnionHashSet::new_from([2]),
+        );
+        let (a, b) = p.as_reveal_mut();
+        a.as_reveal_mut().insert(10);
+        b.as_reveal_mut().insert(20);
+        let (a, b) = p.into_reveal();
+        assert!(a.as_reveal_ref().contains(&10));
+        assert!(b.as_reveal_ref().contains(&20));
+    }
+
+    #[test]
+    fn pair_merge_both_sides_change() {
+        let mut p1 = Pair::new(
+            SetUnionHashSet::new_from([1]),
+            SetUnionHashSet::new_from([10]),
+        );
+        let p2 = Pair::new(
+            SetUnionHashSet::new_from([2]),
+            SetUnionHashSet::new_from([20]),
+        );
+        assert!(p1.merge(p2));
+        let (a, b) = p1.into_reveal();
+        assert!(a.as_reveal_ref().contains(&1));
+        assert!(a.as_reveal_ref().contains(&2));
+        assert!(b.as_reveal_ref().contains(&10));
+        assert!(b.as_reveal_ref().contains(&20));
+    }
+
+    #[test]
+    fn pair_merge_no_change() {
+        let mut p1 = Pair::new(
+            SetUnionHashSet::new_from([1, 2]),
+            SetUnionHashSet::new_from([10, 20]),
+        );
+        let p2 = Pair::new(
+            SetUnionHashSet::new_from([1]),
+            SetUnionHashSet::new_from([10]),
+        );
+        assert!(!p1.merge(p2));
+    }
+
+    #[test]
+    fn pair_deep_reveal() {
+        use crate::DeepReveal;
+        let p = Pair::new(
+            SetUnionHashSet::new_from([1, 2]),
+            SetUnionHashSet::new_from([3, 4]),
+        );
+        let (a, b) = p.deep_reveal();
+        assert_eq!(a.len(), 2);
+        assert_eq!(b.len(), 2);
+    }
+
+    #[test]
+    fn pair_default_is_bot() {
+        use crate::IsBot;
+        let p = Pair::<SetUnionHashSet<usize>, SetUnionHashSet<usize>>::default();
+        assert!(p.is_bot());
+    }
+
+    #[test]
+    fn pair_new_from() {
+        use crate::IsBot;
+        let p = Pair::<SetUnionHashSet<usize>, SetUnionHashSet<usize>>::new_from(
+            HashSet::from([1]),
+            HashSet::from([2]),
+        );
+        assert!(!p.is_bot());
     }
 }

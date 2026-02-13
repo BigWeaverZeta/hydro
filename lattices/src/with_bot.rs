@@ -237,4 +237,91 @@ mod test {
             WithBot::new_from(SetUnionHashSet::new((0..10).collect())),
         ]);
     }
+
+    #[test]
+    fn default_is_bot() {
+        let bot = WithBot::<SetUnionHashSet<usize>>::default();
+        assert!(bot.is_bot());
+        assert!(!bot.is_top());
+        assert_eq!(bot.as_reveal_ref(), None);
+    }
+
+    #[test]
+    fn new_from_value_is_not_bot() {
+        let val = WithBot::new_from(SetUnionHashSet::new_from([1, 2, 3]));
+        assert!(!val.is_bot());
+        assert!(val.as_reveal_ref().is_some());
+    }
+
+    #[test]
+    fn merge_bot_with_value() {
+        let mut bot = WithBot::<SetUnionHashSet<usize>>::default();
+        let val = WithBot::new_from(SetUnionHashSet::new_from([1]));
+        assert!(bot.merge(val));
+        assert!(!bot.is_bot());
+    }
+
+    #[test]
+    fn merge_value_with_bot_no_change() {
+        let mut val = WithBot::new_from(SetUnionHashSet::new_from([1]));
+        let bot = WithBot::<SetUnionHashSet<usize>>::default();
+        assert!(!val.merge(bot));
+    }
+
+    #[test]
+    fn merge_bot_with_bot_no_change() {
+        let mut a = WithBot::<SetUnionHashSet<usize>>::default();
+        let b = WithBot::<SetUnionHashSet<usize>>::default();
+        assert!(!a.merge(b));
+        assert!(a.is_bot());
+    }
+
+    #[test]
+    fn deep_reveal() {
+        use crate::DeepReveal;
+        let val = WithBot::new_from(SetUnionHashSet::new_from([1, 2]));
+        let revealed = val.deep_reveal();
+        assert!(revealed.is_some());
+
+        let bot = WithBot::<SetUnionHashSet<usize>>::default();
+        let revealed = bot.deep_reveal();
+        assert!(revealed.is_none());
+    }
+
+    #[test]
+    fn into_reveal() {
+        let val = WithBot::new_from(SetUnionHashSet::new_from([42]));
+        let inner = val.into_reveal();
+        assert!(inner.is_some());
+
+        let bot = WithBot::<SetUnionHashSet<usize>>::default();
+        let inner = bot.into_reveal();
+        assert!(inner.is_none());
+    }
+
+    #[test]
+    fn as_reveal_mut() {
+        let mut val = WithBot::new_from(SetUnionHashSet::new_from([1]));
+        assert!(val.as_reveal_mut().is_some());
+
+        let mut bot = WithBot::<SetUnionHashSet<usize>>::default();
+        assert!(bot.as_reveal_mut().is_none());
+    }
+
+    #[test]
+    fn lattice_from() {
+        let original = WithBot::new_from(SetUnionHashSet::new_from([1, 2]));
+        let converted: WithBot<SetUnionHashSet<usize>> = LatticeFrom::lattice_from(original);
+        assert!(!converted.is_bot());
+    }
+
+    #[test]
+    fn merge_empty_set_into_bot_remains_bot() {
+        // WithBot(Some(empty_set)) should be bot-equivalent to WithBot(None)
+        let mut bot = WithBot::<SetUnionHashSet<usize>>::default();
+        let empty_set = WithBot::new_from(SetUnionHashSet::new_from([]));
+        // empty_set is bot because SetUnionHashSet::default() is bot
+        assert!(!bot.merge(empty_set));
+        assert!(bot.is_bot());
+    }
 }

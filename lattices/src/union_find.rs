@@ -335,4 +335,111 @@ mod test {
         check_all(items);
         check_atomize_each(items);
     }
+
+    #[test]
+    fn union_returns_changed() {
+        let mut uf = <UnionFindHashMap<i32>>::default();
+        // First union should change
+        assert!(uf.union(1, 2).into_reveal());
+        // Same union should not change
+        assert!(!uf.union(1, 2).into_reveal());
+        assert!(!uf.union(2, 1).into_reveal());
+    }
+
+    #[test]
+    fn same_reflexive() {
+        let uf = <UnionFindHashMap<i32>>::default();
+        assert!(uf.same(1, 1).into_reveal());
+    }
+
+    #[test]
+    fn same_after_union() {
+        let mut uf = <UnionFindHashMap<i32>>::default();
+        assert!(!uf.same(1, 2).into_reveal());
+        uf.union(1, 2);
+        assert!(uf.same(1, 2).into_reveal());
+        assert!(uf.same(2, 1).into_reveal());
+    }
+
+    #[test]
+    fn transitive_union() {
+        let mut uf = <UnionFindHashMap<i32>>::default();
+        uf.union(1, 2);
+        uf.union(2, 3);
+        assert!(uf.same(1, 3).into_reveal());
+        assert!(uf.same(3, 1).into_reveal());
+    }
+
+    #[test]
+    fn default_is_bot() {
+        let uf = <UnionFindHashMap<i32>>::default();
+        assert!(uf.is_bot());
+    }
+
+    #[test]
+    fn singleton_entries_are_bot() {
+        // An entry where item == parent (i.e. a singleton set) is bot
+        let uf = <UnionFindHashMap<_>>::new_from([('a', Cell::new('a'))]);
+        assert!(uf.is_bot());
+    }
+
+    #[test]
+    fn non_singleton_is_not_bot() {
+        let uf = <UnionFindHashMap<_>>::new_from([('b', Cell::new('a'))]);
+        assert!(!uf.is_bot());
+    }
+
+    #[test]
+    fn never_top() {
+        let uf = <UnionFindHashMap<_>>::new_from([
+            ('a', Cell::new('a')),
+            ('b', Cell::new('a')),
+            ('c', Cell::new('a')),
+        ]);
+        assert!(!uf.is_top());
+    }
+
+    #[test]
+    fn deep_reveal() {
+        use crate::DeepReveal;
+        let uf = <UnionFindHashMap<_>>::new_from([('b', Cell::new('a'))]);
+        let revealed = uf.deep_reveal();
+        assert!(revealed.contains_key(&'b'));
+    }
+
+    #[test]
+    fn merge_two_union_finds() {
+        let mut uf1 = <UnionFindHashMap<i32>>::default();
+        uf1.union(1, 2);
+
+        let mut uf2 = <UnionFindHashMap<i32>>::default();
+        uf2.union(3, 4);
+
+        assert!(uf1.merge(uf2));
+        assert!(uf1.same(1, 2).into_reveal());
+        assert!(uf1.same(3, 4).into_reveal());
+        assert!(!uf1.same(1, 3).into_reveal());
+    }
+
+    #[test]
+    fn merge_overlapping() {
+        let mut uf1 = <UnionFindHashMap<i32>>::default();
+        uf1.union(1, 2);
+
+        let mut uf2 = <UnionFindHashMap<i32>>::default();
+        uf2.union(2, 3);
+
+        assert!(uf1.merge(uf2));
+        assert!(uf1.same(1, 3).into_reveal());
+    }
+
+    #[test]
+    fn as_reveal_ref_and_mut() {
+        let mut uf = <UnionFindHashMap<i32>>::default();
+        uf.union(1, 2);
+        assert!(!uf.as_reveal_ref().is_empty());
+
+        uf.as_reveal_mut().insert(3, Cell::new(1));
+        assert!(uf.same(1, 3).into_reveal());
+    }
 }

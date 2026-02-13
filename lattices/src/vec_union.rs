@@ -199,4 +199,118 @@ mod test {
 
         check_all(&test_vec);
     }
+
+    #[test]
+    fn vec_union_empty_is_bot() {
+        let v = VecUnion::<Max<usize>>::default();
+        assert!(v.is_bot());
+        assert!(!v.is_top());
+    }
+
+    #[test]
+    fn vec_union_never_top() {
+        let v = VecUnion::new(vec![Max::new(100), Max::new(200)]);
+        assert!(!v.is_top());
+    }
+
+    #[test]
+    fn vec_union_merge_extends_shorter() {
+        let mut a = VecUnion::new(vec![Max::new(1)]);
+        let b = VecUnion::new(vec![Max::new(0), Max::new(5), Max::new(3)]);
+        assert!(a.merge(b));
+        let revealed = a.as_reveal_ref();
+        assert_eq!(revealed.len(), 3);
+        assert_eq!(*revealed[0].as_reveal_ref(), 1); // max(1, 0) = 1
+        assert_eq!(*revealed[1].as_reveal_ref(), 5);
+        assert_eq!(*revealed[2].as_reveal_ref(), 3);
+    }
+
+    #[test]
+    fn vec_union_merge_longer_into_shorter() {
+        let mut a = VecUnion::new(vec![Max::new(1), Max::new(2), Max::new(3)]);
+        let b = VecUnion::new(vec![Max::new(5)]);
+        assert!(a.merge(b));
+        let revealed = a.as_reveal_ref();
+        assert_eq!(revealed.len(), 3);
+        assert_eq!(*revealed[0].as_reveal_ref(), 5); // max(1, 5) = 5
+        assert_eq!(*revealed[1].as_reveal_ref(), 2);
+        assert_eq!(*revealed[2].as_reveal_ref(), 3);
+    }
+
+    #[test]
+    fn vec_union_merge_no_change() {
+        let mut a = VecUnion::new(vec![Max::new(5), Max::new(10)]);
+        let b = VecUnion::new(vec![Max::new(3), Max::new(8)]);
+        assert!(!a.merge(b));
+    }
+
+    #[test]
+    fn vec_union_partial_ord() {
+        use std::cmp::Ordering::*;
+
+        let empty = VecUnion::<Max<usize>>::default();
+        let one = VecUnion::new(vec![Max::new(1)]);
+        let two = VecUnion::new(vec![Max::new(1), Max::new(2)]);
+
+        assert_eq!(empty.partial_cmp(&one), Some(Less));
+        assert_eq!(one.partial_cmp(&empty), Some(Greater));
+        assert_eq!(one.partial_cmp(&two), Some(Less));
+        assert_eq!(two.partial_cmp(&one), Some(Greater));
+    }
+
+    #[test]
+    fn vec_union_partial_eq() {
+        let a = VecUnion::new(vec![Max::new(1), Max::new(2)]);
+        let b = VecUnion::new(vec![Max::new(1), Max::new(2)]);
+        assert_eq!(a, b);
+
+        let c = VecUnion::new(vec![Max::new(1)]);
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn vec_union_deep_reveal() {
+        use crate::DeepReveal;
+        let v = VecUnion::new(vec![Max::new(1), Max::new(2)]);
+        let revealed = v.deep_reveal();
+        assert_eq!(revealed, vec![1, 2]);
+    }
+
+    #[test]
+    fn vec_union_new_from() {
+        let v = VecUnion::new_from([Max::new(1), Max::new(2), Max::new(3)]);
+        assert_eq!(v.as_reveal_ref().len(), 3);
+    }
+
+    #[test]
+    fn vec_union_as_reveal_mut() {
+        let mut v = VecUnion::new(vec![Max::new(1)]);
+        v.as_reveal_mut().push(Max::new(2));
+        assert_eq!(v.as_reveal_ref().len(), 2);
+    }
+
+    #[test]
+    fn vec_union_into_reveal() {
+        let v = VecUnion::new(vec![Max::new(10), Max::new(20)]);
+        let inner = v.into_reveal();
+        assert_eq!(inner.len(), 2);
+        assert_eq!(inner[0].into_reveal(), 10);
+        assert_eq!(inner[1].into_reveal(), 20);
+    }
+
+    #[test]
+    fn vec_union_merge_with_empty_no_change() {
+        let mut a = VecUnion::new(vec![Max::new(5)]);
+        let b = VecUnion::<Max<usize>>::default();
+        assert!(!a.merge(b));
+        assert_eq!(a.as_reveal_ref().len(), 1);
+    }
+
+    #[test]
+    fn vec_union_merge_empty_with_nonempty() {
+        let mut a = VecUnion::<Max<usize>>::default();
+        let b = VecUnion::new(vec![Max::new(5)]);
+        assert!(a.merge(b));
+        assert_eq!(a.as_reveal_ref().len(), 1);
+    }
 }

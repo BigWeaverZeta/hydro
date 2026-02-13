@@ -267,3 +267,161 @@ where
     }
     FnBimorphism(func)
 }
+
+#[cfg(test)]
+mod lib_tests {
+    use std::collections::HashSet;
+
+    use super::*;
+    use crate::set_union::SetUnionHashSet;
+
+    #[test]
+    fn merge_owned_returns_merged() {
+        let a = SetUnionHashSet::new_from([1, 2]);
+        let b = SetUnionHashSet::new_from([3, 4]);
+        let result = Merge::merge_owned(a, b);
+        let set = result.into_reveal();
+        assert!(set.contains(&1));
+        assert!(set.contains(&2));
+        assert!(set.contains(&3));
+        assert!(set.contains(&4));
+    }
+
+    #[test]
+    fn merge_owned_idempotent() {
+        let a = SetUnionHashSet::new_from([1, 2]);
+        let b = SetUnionHashSet::new_from([1, 2]);
+        let result = Merge::merge_owned(a, b);
+        assert_eq!(result.as_reveal_ref().len(), 2);
+    }
+
+    #[test]
+    fn closure_to_morphism_works() {
+        let mut morph = closure_to_morphism(|x: Max<i32>| Max::new(x.into_reveal() * 2));
+        assert_eq!(morph.call(Max::new(5)).into_reveal(), 10);
+        assert_eq!(morph.call(Max::new(0)).into_reveal(), 0);
+        assert_eq!(morph.call(Max::new(-3)).into_reveal(), -6);
+    }
+
+    #[test]
+    fn closure_to_bimorphism_works() {
+        let mut bimorph = closure_to_bimorphism(|a: Max<i32>, b: Max<i32>| {
+            Max::new(a.into_reveal() + b.into_reveal())
+        });
+        assert_eq!(bimorph.call(Max::new(3), Max::new(4)).into_reveal(), 7);
+    }
+
+    #[test]
+    fn naive_lattice_ord_equal() {
+        let a = SetUnionHashSet::new_from([1, 2]);
+        let b = SetUnionHashSet::new_from([1, 2]);
+        assert_eq!(a.naive_cmp(&b), Some(std::cmp::Ordering::Equal));
+    }
+
+    #[test]
+    fn naive_lattice_ord_less() {
+        let a = SetUnionHashSet::new_from([1]);
+        let b = SetUnionHashSet::new_from([1, 2]);
+        assert_eq!(a.naive_cmp(&b), Some(std::cmp::Ordering::Less));
+    }
+
+    #[test]
+    fn naive_lattice_ord_greater() {
+        let a = SetUnionHashSet::new_from([1, 2]);
+        let b = SetUnionHashSet::new_from([1]);
+        assert_eq!(a.naive_cmp(&b), Some(std::cmp::Ordering::Greater));
+    }
+
+    #[test]
+    fn naive_lattice_ord_incomparable() {
+        let a = SetUnionHashSet::new_from([1]);
+        let b = SetUnionHashSet::new_from([2]);
+        assert_eq!(a.naive_cmp(&b), None);
+    }
+
+    #[test]
+    fn lattice_from_identity() {
+        let original = SetUnionHashSet::new_from([1, 2, 3]);
+        let converted: SetUnionHashSet<i32> = LatticeFrom::lattice_from(original);
+        assert_eq!(converted.as_reveal_ref().len(), 3);
+    }
+
+    #[test]
+    fn is_bot_empty_set() {
+        let s = SetUnionHashSet::<i32>::default();
+        assert!(s.is_bot());
+    }
+
+    #[test]
+    fn is_bot_nonempty_set() {
+        let s = SetUnionHashSet::new_from([1]);
+        assert!(!s.is_bot());
+    }
+
+    #[test]
+    fn is_top_set_always_false() {
+        let s = SetUnionHashSet::new_from([1, 2, 3]);
+        assert!(!s.is_top());
+    }
+
+    #[test]
+    fn deep_reveal_set_union() {
+        let s = SetUnionHashSet::new_from([1, 2]);
+        let revealed: HashSet<i32> = s.deep_reveal();
+        assert_eq!(revealed.len(), 2);
+    }
+
+    #[test]
+    fn atomize_set_union() {
+        let s = SetUnionHashSet::new_from([1, 2, 3]);
+        let atoms: Vec<_> = s.atomize().collect();
+        assert_eq!(atoms.len(), 3);
+        // Each atom should be a singleton set
+        for atom in &atoms {
+            assert_eq!(atom.as_reveal_ref().0.len(), 1);
+        }
+    }
+
+    #[test]
+    fn atomize_empty_set() {
+        let s = SetUnionHashSet::<i32>::default();
+        let atoms: Vec<_> = s.atomize().collect();
+        assert!(atoms.is_empty());
+    }
+
+    #[test]
+    fn addition_trait_works() {
+        // Test that the Addition trait default method works
+        struct TestAdd;
+        impl Addition<TestAdd> for i32 {
+            fn add(&mut self, other: Self) {
+                *self += other;
+            }
+        }
+        let result = <i32 as Addition<TestAdd>>::add_owned(3, 4);
+        assert_eq!(result, 7);
+    }
+
+    #[test]
+    fn multiplication_trait_works() {
+        struct TestMul;
+        impl Multiplication<TestMul> for i32 {
+            fn mul(&mut self, other: Self) {
+                *self *= other;
+            }
+        }
+        let result = <i32 as Multiplication<TestMul>>::mul_owned(3, 4);
+        assert_eq!(result, 12);
+    }
+
+    #[test]
+    fn unit_lattice_properties() {
+        // Unit is both bot and top
+        assert!(().is_bot());
+        assert!(().is_top());
+
+        // Merging unit with unit never changes
+        let mut u = ();
+        assert!(!u.merge(()));
+    }
+}

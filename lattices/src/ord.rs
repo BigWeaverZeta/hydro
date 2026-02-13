@@ -352,4 +352,176 @@ mod test {
         ];
         check_all(items);
     }
+
+    #[test]
+    fn max_merge_takes_larger() {
+        let mut a = Max::new(3);
+        assert!(a.merge(Max::new(5)));
+        assert_eq!(*a.as_reveal_ref(), 5);
+
+        assert!(!a.merge(Max::new(2)));
+        assert_eq!(*a.as_reveal_ref(), 5);
+
+        assert!(!a.merge(Max::new(5)));
+        assert_eq!(*a.as_reveal_ref(), 5);
+    }
+
+    #[test]
+    fn min_merge_takes_smaller() {
+        let mut a = Min::new(5);
+        assert!(a.merge(Min::new(3)));
+        assert_eq!(*a.as_reveal_ref(), 3);
+
+        assert!(!a.merge(Min::new(7)));
+        assert_eq!(*a.as_reveal_ref(), 3);
+
+        assert!(!a.merge(Min::new(3)));
+        assert_eq!(*a.as_reveal_ref(), 3);
+    }
+
+    #[test]
+    fn max_is_bot_and_top_numeric() {
+        assert!(Max::new(u8::MIN).is_bot());
+        assert!(!Max::new(u8::MIN).is_top());
+        assert!(Max::new(u8::MAX).is_top());
+        assert!(!Max::new(u8::MAX).is_bot());
+        assert!(!Max::new(42_u8).is_bot());
+        assert!(!Max::new(42_u8).is_top());
+    }
+
+    #[test]
+    fn min_is_bot_and_top_numeric() {
+        assert!(Min::new(u8::MAX).is_bot());
+        assert!(!Min::new(u8::MAX).is_top());
+        assert!(Min::new(u8::MIN).is_top());
+        assert!(!Min::new(u8::MIN).is_bot());
+    }
+
+    #[test]
+    fn max_default_is_min_value() {
+        assert_eq!(*Max::<i32>::default().as_reveal_ref(), i32::MIN);
+        assert_eq!(*Max::<u64>::default().as_reveal_ref(), u64::MIN);
+        assert_eq!(*Max::<bool>::default().as_reveal_ref(), false);
+    }
+
+    #[test]
+    fn min_default_is_max_value() {
+        assert_eq!(*Min::<i32>::default().as_reveal_ref(), i32::MAX);
+        assert_eq!(*Min::<u64>::default().as_reveal_ref(), u64::MAX);
+        assert_eq!(*Min::<bool>::default().as_reveal_ref(), true);
+    }
+
+    #[test]
+    fn max_deep_reveal() {
+        assert_eq!(Max::new(42).deep_reveal(), 42);
+    }
+
+    #[test]
+    fn min_deep_reveal() {
+        assert_eq!(Min::new(42).deep_reveal(), 42);
+    }
+
+    #[test]
+    fn max_merge_owned() {
+        let result = Merge::merge_owned(Max::new(3), Max::new(7));
+        assert_eq!(*result.as_reveal_ref(), 7);
+    }
+
+    #[test]
+    fn min_merge_owned() {
+        let result = Merge::merge_owned(Min::new(3), Min::new(7));
+        assert_eq!(*result.as_reveal_ref(), 3);
+    }
+
+    #[test]
+    fn max_bool_lattice() {
+        assert!(Max::new(false).is_bot());
+        assert!(Max::new(true).is_top());
+        let mut a = Max::new(false);
+        assert!(a.merge(Max::new(true)));
+        assert_eq!(*a.as_reveal_ref(), true);
+        assert!(!a.merge(Max::new(false)));
+    }
+
+    #[test]
+    fn min_bool_lattice() {
+        assert!(Min::new(true).is_bot());
+        assert!(Min::new(false).is_top());
+        let mut a = Min::new(true);
+        assert!(a.merge(Min::new(false)));
+        assert_eq!(*a.as_reveal_ref(), false);
+        assert!(!a.merge(Min::new(true)));
+    }
+
+    #[test]
+    fn consistency_max_u8() {
+        let items = &[
+            Max::new(0_u8),
+            Max::new(1_u8),
+            Max::new(128_u8),
+            Max::new(u8::MIN),
+            Max::new(u8::MAX),
+        ];
+        check_all(items);
+    }
+
+    #[test]
+    fn consistency_min_u8() {
+        let items = &[
+            Min::new(0_u8),
+            Min::new(1_u8),
+            Min::new(128_u8),
+            Min::new(u8::MIN),
+            Min::new(u8::MAX),
+        ];
+        check_all(items);
+    }
+
+    #[test]
+    fn max_as_reveal_mut() {
+        let mut m = Max::new(10);
+        *m.as_reveal_mut() = 20;
+        assert_eq!(m.into_reveal(), 20);
+    }
+
+    #[test]
+    fn min_as_reveal_mut() {
+        let mut m = Min::new(10);
+        *m.as_reveal_mut() = 5;
+        assert_eq!(m.into_reveal(), 5);
+    }
+
+    #[test]
+    fn max_from() {
+        let m = Max::from(42_u32);
+        assert_eq!(*m.as_reveal_ref(), 42_u32);
+    }
+
+    #[test]
+    fn min_new_from() {
+        let m = Min::new_from(42_u32);
+        assert_eq!(*m.as_reveal_ref(), 42_u32);
+    }
+
+    #[test]
+    fn max_unit_is_both_bot_and_top() {
+        let m = Max::new(());
+        assert!(m.is_bot());
+        assert!(m.is_top());
+    }
+
+    #[test]
+    fn min_unit_is_both_bot_and_top() {
+        let m = Min::new(());
+        assert!(m.is_bot());
+        assert!(m.is_top());
+    }
+
+    #[test]
+    fn min_partial_ord_reversed() {
+        // Min reverses the ordering: smaller inner values are "greater" in the lattice
+        assert!(Min::new(0) > Min::new(1));
+        assert!(Min::new(1) < Min::new(0));
+        assert_eq!(Min::new(5).partial_cmp(&Min::new(5)), Some(Equal));
+    }
 }

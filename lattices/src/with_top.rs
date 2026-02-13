@@ -227,4 +227,101 @@ mod test {
             WithTop::new_from(SetUnionHashSet::new((0..10).collect())),
         ]);
     }
+
+    #[test]
+    fn none_is_top() {
+        let top = WithTop::<SetUnionHashSet<usize>>::new(None);
+        assert!(top.is_top());
+        assert!(!top.is_bot());
+    }
+
+    #[test]
+    fn default_uses_inner_default() {
+        let def = WithTop::<SetUnionHashSet<usize>>::default();
+        // Default wraps Some(inner_default), which is an empty set (bot of SetUnion)
+        assert!(def.as_reveal_ref().is_some());
+        assert!(def.is_bot());
+    }
+
+    #[test]
+    fn merge_value_with_top() {
+        let mut a = WithTop::new_from(SetUnionHashSet::new_from([1]));
+        let top = WithTop::<SetUnionHashSet<usize>>::new(None);
+        assert!(a.merge(top));
+        assert!(a.is_top());
+        assert_eq!(a.as_reveal_ref(), None);
+    }
+
+    #[test]
+    fn merge_top_with_value_no_change() {
+        let mut top = WithTop::<SetUnionHashSet<usize>>::new(None);
+        let val = WithTop::new_from(SetUnionHashSet::new_from([1]));
+        assert!(!top.merge(val));
+        assert!(top.is_top());
+    }
+
+    #[test]
+    fn merge_top_with_top_no_change() {
+        let mut a = WithTop::<SetUnionHashSet<usize>>::new(None);
+        let b = WithTop::<SetUnionHashSet<usize>>::new(None);
+        assert!(!a.merge(b));
+        assert!(a.is_top());
+    }
+
+    #[test]
+    fn merge_values() {
+        let mut a = WithTop::new_from(SetUnionHashSet::new_from([1]));
+        let b = WithTop::new_from(SetUnionHashSet::new_from([2]));
+        assert!(a.merge(b));
+        // Should now contain {1, 2}
+        let inner = a.as_reveal_ref().unwrap();
+        assert!(inner.as_reveal_ref().contains(&1));
+        assert!(inner.as_reveal_ref().contains(&2));
+    }
+
+    #[test]
+    fn deep_reveal() {
+        use crate::DeepReveal;
+        let val = WithTop::new_from(SetUnionHashSet::new_from([1, 2]));
+        let revealed = val.deep_reveal();
+        assert!(revealed.is_some());
+
+        let top = WithTop::<SetUnionHashSet<usize>>::new(None);
+        let revealed = top.deep_reveal();
+        assert!(revealed.is_none());
+    }
+
+    #[test]
+    fn into_reveal() {
+        let val = WithTop::new_from(SetUnionHashSet::new_from([42]));
+        assert!(val.into_reveal().is_some());
+
+        let top = WithTop::<SetUnionHashSet<usize>>::new(None);
+        assert!(top.into_reveal().is_none());
+    }
+
+    #[test]
+    fn as_reveal_mut() {
+        let mut val = WithTop::new_from(SetUnionHashSet::new_from([1]));
+        assert!(val.as_reveal_mut().is_some());
+
+        let mut top = WithTop::<SetUnionHashSet<usize>>::new(None);
+        assert!(top.as_reveal_mut().is_none());
+    }
+
+    #[test]
+    fn lattice_from() {
+        let original = WithTop::new_from(SetUnionHashSet::new_from([1, 2]));
+        let converted: WithTop<SetUnionHashSet<usize>> = LatticeFrom::lattice_from(original);
+        assert!(!converted.is_top());
+    }
+
+    #[test]
+    fn partial_cmp_top_greater_than_all() {
+        use std::cmp::Ordering::*;
+        let top = WithTop::<SetUnionHashSet<usize>>::new(None);
+        let val = WithTop::new_from(SetUnionHashSet::new_from([1, 2, 3]));
+        assert_eq!(top.partial_cmp(&val), Some(Greater));
+        assert_eq!(val.partial_cmp(&top), Some(Less));
+    }
 }

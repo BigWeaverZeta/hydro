@@ -144,4 +144,110 @@ mod test {
         ];
         check_all(items);
     }
+
+    #[test]
+    fn merge_equal_values_no_change() {
+        let mut a = Conflict::new_from(42);
+        let b = Conflict::new_from(42);
+        assert!(!a.merge(b));
+        assert_eq!(a.into_reveal(), Some(42));
+    }
+
+    #[test]
+    fn merge_inequal_values_becomes_conflict() {
+        let mut a = Conflict::new_from(1);
+        let b = Conflict::new_from(2);
+        assert!(a.merge(b));
+        assert_eq!(a.into_reveal(), None);
+    }
+
+    #[test]
+    fn merge_value_with_conflict_becomes_conflict() {
+        let mut a = Conflict::new_from(1);
+        let b = Conflict::new(None);
+        assert!(a.merge(b));
+        assert_eq!(a.into_reveal(), None);
+    }
+
+    #[test]
+    fn merge_conflict_with_value_no_change() {
+        let mut a = Conflict::<i32>::new(None);
+        let b = Conflict::new_from(1);
+        assert!(!a.merge(b));
+        assert_eq!(a.into_reveal(), None);
+    }
+
+    #[test]
+    fn merge_conflict_with_conflict_no_change() {
+        let mut a = Conflict::<i32>::new(None);
+        let b = Conflict::<i32>::new(None);
+        assert!(!a.merge(b));
+        assert_eq!(a.into_reveal(), None);
+    }
+
+    #[test]
+    fn is_top_is_conflict() {
+        assert!(Conflict::<i32>::new(None).is_top());
+        assert!(!Conflict::new_from(42).is_top());
+    }
+
+    #[test]
+    fn is_bot_always_false() {
+        assert!(!Conflict::<i32>::new(None).is_bot());
+        assert!(!Conflict::new_from(42).is_bot());
+    }
+
+    #[test]
+    fn partial_ord_equal_values() {
+        assert_eq!(
+            Conflict::new_from(10).partial_cmp(&Conflict::new_from(10)),
+            Some(Equal)
+        );
+    }
+
+    #[test]
+    fn partial_ord_incomparable_values() {
+        assert_eq!(
+            Conflict::new_from(10).partial_cmp(&Conflict::new_from(20)),
+            None
+        );
+    }
+
+    #[test]
+    fn partial_ord_value_vs_conflict() {
+        assert_eq!(
+            Conflict::new_from(10).partial_cmp(&Conflict::new(None)),
+            Some(Less)
+        );
+        assert_eq!(
+            Conflict::<i32>::new(None).partial_cmp(&Conflict::new_from(10)),
+            Some(Greater)
+        );
+    }
+
+    #[test]
+    fn deep_reveal() {
+        let c = Conflict::new_from("hello");
+        assert_eq!(c.deep_reveal(), Some("hello"));
+
+        let c = Conflict::<&str>::new(None);
+        assert_eq!(c.deep_reveal(), None);
+    }
+
+    #[test]
+    fn as_reveal_ref_and_mut() {
+        let c = Conflict::new_from(42);
+        assert_eq!(c.as_reveal_ref(), Some(&42));
+
+        let mut c = Conflict::new_from(42);
+        *c.as_reveal_mut().unwrap() = 100;
+        assert_eq!(c.into_reveal(), Some(100));
+    }
+
+    #[test]
+    fn lattice_from_identity() {
+        let c = Conflict::new_from(42);
+        let c2: Conflict<i32> = LatticeFrom::lattice_from(c);
+        assert_eq!(c2.into_reveal(), Some(42));
+    }
 }

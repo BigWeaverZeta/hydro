@@ -132,4 +132,83 @@ mod test {
         // `Point` is not actually a lattice.
         assert!(std::panic::catch_unwind(|| check_lattice_properties(items)).is_err());
     }
+
+    #[test]
+    fn point_merge_equal_no_change() {
+        let mut a = Point::<_, ()>::new(42);
+        let b = Point::<_, ()>::new(42);
+        assert!(!a.merge(b));
+        assert_eq!(a.val, 42);
+    }
+
+    #[test]
+    #[should_panic(expected = "The `Point` lattice cannot merge inequal elements.")]
+    fn point_merge_inequal_panics() {
+        let mut a = Point::<_, ()>::new(1);
+        let b = Point::<_, ()>::new(2);
+        a.merge(b);
+    }
+
+    #[test]
+    fn point_is_always_bot_and_top() {
+        use crate::{IsBot, IsTop};
+        let p = Point::<_, ()>::new("anything");
+        assert!(p.is_bot());
+        assert!(p.is_top());
+    }
+
+    #[test]
+    fn point_eq_equal_values() {
+        let a = Point::<_, ()>::new(42);
+        let b = Point::<_, ()>::new(42);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn point_eq_inequal_values() {
+        let a = Point::<_, ()>::new(1);
+        let b = Point::<_, ()>::new(2);
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn point_deep_reveal() {
+        use crate::DeepReveal;
+        let p = Point::<_, ()>::new("hello");
+        assert_eq!(p.deep_reveal(), "hello");
+    }
+
+    #[test]
+    fn point_new_from() {
+        let p = Point::<String, ()>::new_from("hello");
+        assert_eq!(p.val, "hello");
+    }
+
+    #[test]
+    fn point_default() {
+        let p = Point::<i32, ()>::default();
+        assert_eq!(p.val, 0);
+    }
+
+    #[test]
+    fn point_lattice_from() {
+        let a = Point::<_, ()>::new(42);
+        let b: Point<_, ()> = LatticeFrom::lattice_from(a);
+        assert_eq!(b.val, 42);
+    }
+
+    #[test]
+    #[should_panic(expected = "The `Point` lattice does not have a partial order")]
+    fn point_partial_cmp_inequal_panics() {
+        let a = Point::<_, ()>::new(1);
+        let b = Point::<_, ()>::new(2);
+        a.partial_cmp(&b);
+    }
+
+    #[test]
+    fn point_partial_cmp_equal() {
+        let a = Point::<_, ()>::new(42);
+        let b = Point::<_, ()>::new(42);
+        assert_eq!(a.partial_cmp(&b), Some(std::cmp::Ordering::Equal));
+    }
 }

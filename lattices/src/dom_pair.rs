@@ -243,4 +243,93 @@ mod test {
         check_lattice_properties(&test_vec);
         check_partial_ord_properties(&test_vec);
     }
+
+    #[test]
+    fn dom_pair_merge_greater_key_replaces() {
+        let mut dp = DomPair::new(Max::new(1), SetUnionHashSet::new_from([10]));
+        let other = DomPair::new(Max::new(2), SetUnionHashSet::new_from([20]));
+        assert!(dp.merge(other));
+        let (key, val) = dp.into_reveal();
+        assert_eq!(key.into_reveal(), 2);
+        assert!(val.as_reveal_ref().contains(&20));
+        // The old value [10] should be replaced
+        assert!(!val.as_reveal_ref().contains(&10));
+    }
+
+    #[test]
+    fn dom_pair_merge_lesser_key_no_change() {
+        let mut dp = DomPair::new(Max::new(2), SetUnionHashSet::new_from([20]));
+        let other = DomPair::new(Max::new(1), SetUnionHashSet::new_from([10]));
+        assert!(!dp.merge(other));
+        let (key, val) = dp.into_reveal();
+        assert_eq!(key.into_reveal(), 2);
+        assert!(val.as_reveal_ref().contains(&20));
+    }
+
+    #[test]
+    fn dom_pair_merge_equal_key_merges_values() {
+        let mut dp = DomPair::new(Max::new(1), SetUnionHashSet::new_from([10]));
+        let other = DomPair::new(Max::new(1), SetUnionHashSet::new_from([20]));
+        assert!(dp.merge(other));
+        let (key, val) = dp.into_reveal();
+        assert_eq!(key.into_reveal(), 1);
+        assert!(val.as_reveal_ref().contains(&10));
+        assert!(val.as_reveal_ref().contains(&20));
+    }
+
+    #[test]
+    fn dom_pair_is_bot_and_top() {
+        use crate::IsBot;
+        let dp = DomPair::new(Max::new(i32::MIN), SetUnionHashSet::<usize>::new_from([]));
+        assert!(dp.is_bot());
+
+        use crate::IsTop;
+        let dp_with_top = DomPair::new(
+            WithTop::<SetUnionHashSet<usize>>::new(None),
+            WithTop::<SetUnionHashSet<usize>>::new(None),
+        );
+        assert!(dp_with_top.is_top());
+    }
+
+    #[test]
+    fn dom_pair_deep_reveal() {
+        use crate::DeepReveal;
+        let dp = DomPair::new(Max::new(42), SetUnionHashSet::new_from([1, 2]));
+        let (key, val) = dp.deep_reveal();
+        assert_eq!(key, 42);
+        assert_eq!(val.len(), 2);
+    }
+
+    #[test]
+    fn dom_pair_new_from() {
+        let dp = DomPair::new_from(Max::new(42), SetUnionHashSet::new_from([1]));
+        let (key, val) = dp.as_reveal_ref();
+        assert_eq!(*key.as_reveal_ref(), 42);
+        assert!(val.as_reveal_ref().contains(&1));
+    }
+
+    #[test]
+    fn dom_pair_as_reveal_mut() {
+        let mut dp = DomPair::new(Max::new(42), SetUnionHashSet::new_from([1]));
+        let (key, val) = dp.as_reveal_mut();
+        *key.as_reveal_mut() = 100;
+        val.as_reveal_mut().insert(2);
+        let (key, val) = dp.into_reveal();
+        assert_eq!(key.into_reveal(), 100);
+        assert!(val.as_reveal_ref().contains(&1));
+        assert!(val.as_reveal_ref().contains(&2));
+    }
+
+    #[test]
+    fn dom_pair_partial_eq() {
+        let a = DomPair::new(Max::new(1), SetUnionHashSet::new_from([10]));
+        let b = DomPair::new(Max::new(1), SetUnionHashSet::new_from([10]));
+        assert_eq!(a, b);
+
+        let c = DomPair::new(Max::new(2), SetUnionHashSet::new_from([10]));
+        assert_ne!(a, c);
+
+        let d = DomPair::new(Max::new(1), SetUnionHashSet::new_from([20]));
+        assert_ne!(a, d);
+    }
 }

@@ -979,6 +979,255 @@ mod test {
         assert_eq!(column_store.get(0).unwrap(), first.as_ref_var());
         assert_eq!(column_store.get(1).unwrap(), second.as_ref_var());
     }
+
+    #[test]
+    fn test_variadic_len() {
+        assert_eq!(<var_type!() as VariadicExt>::LEN, 0);
+        assert_eq!(<var_type!(u8) as VariadicExt>::LEN, 1);
+        assert_eq!(<var_type!(u8, u16) as VariadicExt>::LEN, 2);
+        assert_eq!(<var_type!(u8, u16, u32) as VariadicExt>::LEN, 3);
+
+        let v = var_expr!(1, "hello", true);
+        assert_eq!(v.len(), 3);
+        assert!(!v.is_empty());
+
+        let empty: var_type!() = var_expr!();
+        assert_eq!(empty.len(), 0);
+        assert!(empty.is_empty());
+    }
+
+    #[test]
+    fn test_extend() {
+        let prefix = var_expr!(1_u8, 2_u16);
+        let suffix = var_expr!(3_u32, 4_u64);
+        let extended = prefix.extend(suffix);
+        let expected: var_type!(u8, u16, u32, u64) = var_expr!(1_u8, 2_u16, 3_u32, 4_u64);
+        assert_eq!(extended, expected);
+    }
+
+    #[test]
+    fn test_extend_with_empty() {
+        let v = var_expr!(1, 2, 3);
+        let extended = v.extend(var_expr!());
+        assert_eq!(extended, var_expr!(1, 2, 3));
+
+        let empty: var_type!() = var_expr!();
+        let extended2 = empty.extend(var_expr!(1, 2, 3));
+        assert_eq!(extended2, var_expr!(1, 2, 3));
+    }
+
+    #[test]
+    fn test_reverse() {
+        let v = var_expr!(1_u8, 2_u16, 3_u32);
+        let reversed = v.reverse();
+        let expected: var_type!(u32, u16, u8) = var_expr!(3_u32, 2_u16, 1_u8);
+        assert_eq!(reversed, expected);
+    }
+
+    #[test]
+    fn test_reverse_empty() {
+        let empty: var_type!() = var_expr!();
+        let reversed = empty.reverse();
+        assert_eq!(reversed, var_expr!());
+    }
+
+    #[test]
+    fn test_reverse_single() {
+        let v = var_expr!(42_u8);
+        let reversed = v.reverse();
+        assert_eq!(reversed, var_expr!(42_u8));
+    }
+
+    #[test]
+    fn test_split() {
+        type FullList = var_type!(u8, u16, u32, u64);
+        type Prefix = var_type!(u8, u16);
+
+        let full: FullList = var_expr!(1_u8, 2_u16, 3_u32, 4_u64);
+        let (prefix, suffix) = <FullList as Split<Prefix>>::split(full);
+
+        assert_eq!(prefix, var_expr!(1_u8, 2_u16));
+        assert_eq!(suffix, var_expr!(3_u32, 4_u64));
+    }
+
+    #[test]
+    fn test_split_empty_prefix() {
+        type FullList = var_type!(u8, u16);
+
+        let full: FullList = var_expr!(1_u8, 2_u16);
+        let (prefix, suffix) = <FullList as Split<var_type!()>>::split(full);
+
+        assert_eq!(prefix, var_expr!());
+        assert_eq!(suffix, var_expr!(1_u8, 2_u16));
+    }
+
+    #[test]
+    fn test_split_full_prefix() {
+        type FullList = var_type!(u8, u16);
+
+        let full: FullList = var_expr!(1_u8, 2_u16);
+        let (prefix, suffix) = <FullList as Split<var_type!(u8, u16)>>::split(full);
+
+        assert_eq!(prefix, var_expr!(1_u8, 2_u16));
+        assert_eq!(suffix, var_expr!());
+    }
+
+    #[test]
+    fn test_into_option() {
+        let v = var_expr!(1_i32, "hello", true);
+        let opt = v.into_option();
+        assert_eq!(opt, var_expr!(Some(1_i32), Some("hello"), Some(true)));
+    }
+
+    #[test]
+    fn test_into_option_empty() {
+        let empty: var_type!() = var_expr!();
+        let opt = empty.into_option();
+        assert_eq!(opt, var_expr!());
+    }
+
+    #[test]
+    fn test_homogenous_get_out_of_bounds() {
+        let var = var_expr!(10, 20, 30);
+        assert_eq!(var.get(3), None);
+        assert_eq!(var.get(100), None);
+    }
+
+    #[test]
+    fn test_homogenous_get_mut_modify() {
+        let mut var = var_expr!(10, 20, 30);
+        if let Some(val) = var.get_mut(1) {
+            *val = 99;
+        }
+        assert_eq!(var.get(1).copied(), Some(99));
+    }
+
+    #[test]
+    fn test_homogenous_into_iter() {
+        let var = var_expr!(1, 2, 3);
+        let collected: Vec<i32> = HomogenousVariadic::into_iter(var).collect();
+        assert_eq!(collected, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn test_homogenous_empty_into_iter() {
+        let var: var_type!() = var_expr!();
+        let collected: Vec<i32> = HomogenousVariadic::into_iter(var).collect();
+        assert!(collected.is_empty());
+    }
+
+    #[test]
+    fn test_copy_ref_variadic() {
+        let var = var_expr!(1_i32, 2_i32, 3_i32);
+        let ref_var = var.as_ref_var();
+        let copied = ref_var.copy_var();
+        assert_eq!(copied, var_expr!(1_i32, 2_i32, 3_i32));
+    }
+
+    #[test]
+    fn test_partial_eq_variadic() {
+        let a = var_expr!(1, "hello", true);
+        let b = var_expr!(1, "hello", true);
+        assert!(<var_type!(i32, &str, bool) as PartialEqVariadic>::eq(&a, &b));
+
+        let c = var_expr!(2, "hello", true);
+        assert!(!<var_type!(i32, &str, bool) as PartialEqVariadic>::eq(&a, &c));
+    }
+
+    #[test]
+    fn test_partial_eq_variadic_empty() {
+        let a: var_type!() = var_expr!();
+        let b: var_type!() = var_expr!();
+        assert!(<var_type!() as PartialEqVariadic>::eq(&a, &b));
+    }
+
+    #[test]
+    fn test_eq_ref_variadic() {
+        let a = var_expr!(1_i32, "hello");
+        let b = var_expr!(1_i32, "hello");
+        assert!(<var_type!(i32, &str) as PartialEqVariadic>::eq_ref(
+            a.as_ref_var(),
+            b.as_ref_var()
+        ));
+    }
+
+    #[test]
+    fn test_vec_variadic_push_and_zip() {
+        use crate::VecVariadic;
+
+        type Item = var_type!(i32, bool);
+        let mut col_store: <Item as VariadicExt>::IntoVec = Default::default();
+
+        VecVariadic::push(&mut col_store, var_expr!(1, true));
+        VecVariadic::push(&mut col_store, var_expr!(2, false));
+        VecVariadic::push(&mut col_store, var_expr!(3, true));
+
+        let rows: Vec<_> = col_store.zip_vecs().collect();
+        assert_eq!(rows.len(), 3);
+    }
+
+    #[test]
+    fn test_vec_variadic_into_zip() {
+        use crate::VecVariadic;
+
+        type Item = var_type!(i32, &'static str);
+        let mut col_store: <Item as VariadicExt>::IntoVec = Default::default();
+
+        VecVariadic::push(&mut col_store, var_expr!(1, "a"));
+        VecVariadic::push(&mut col_store, var_expr!(2, "b"));
+
+        let rows: Vec<Item> = col_store.into_zip().collect();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0], var_expr!(1, "a"));
+        assert_eq!(rows[1], var_expr!(2, "b"));
+    }
+
+    #[test]
+    fn test_vec_variadic_drain() {
+        use crate::VecVariadic;
+
+        type Item = var_type!(i32, bool);
+        let mut col_store: <Item as VariadicExt>::IntoVec = Default::default();
+
+        VecVariadic::push(&mut col_store, var_expr!(1, true));
+        VecVariadic::push(&mut col_store, var_expr!(2, false));
+        VecVariadic::push(&mut col_store, var_expr!(3, true));
+
+        let drained: Vec<Item> = col_store.drain(0..2).collect();
+        assert_eq!(drained.len(), 2);
+        assert_eq!(drained[0], var_expr!(1, true));
+        assert_eq!(drained[1], var_expr!(2, false));
+    }
+
+    #[test]
+    fn test_into_singleton_vec() {
+        let item = var_expr!(42_i32, "hello");
+        let vec_var = item.into_singleton_vec();
+        let var_args!(int_vec, str_vec) = &vec_var;
+        assert_eq!(int_vec.len(), 1);
+        assert_eq!(str_vec.len(), 1);
+        assert_eq!(int_vec[0], 42);
+        assert_eq!(str_vec[0], "hello");
+    }
+
+    #[test]
+    fn test_either_ref_variadic_mut_to_ref() {
+        let mut owned = var_expr!(1_i32, "hello".to_owned());
+        let mut_var = owned.as_mut_var();
+        let ref_var = mut_var.mut_to_ref();
+        // ref_var should be a shared reference variadic
+        let var_args!(r_int, r_str) = ref_var;
+        assert_eq!(*r_int, 1);
+        assert_eq!(*r_str, "hello");
+    }
+
+    #[test]
+    fn test_as_ref_var_equality() {
+        let a = var_expr!(1_i32, true, "test");
+        let ref_a1 = a.as_ref_var();
+        let ref_a2 = a.as_ref_var();
+        assert_eq!(ref_a1, ref_a2);
+    }
 }
 
 #[test]
