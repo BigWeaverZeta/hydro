@@ -95,3 +95,34 @@ impl<T> Extend<(usize, T)> for PriorityStack<T> {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_priority_stack_basic_operations() {
+        let mut stack = PriorityStack::new();
+        stack.push(1, 'a');
+        stack.push(2, 'b');
+        stack.push(1, 'c'); // Same priority as 'a'
+
+        assert_eq!(stack.peek(), Some(&'b')); // Priority 2 is highest
+        assert_eq!(stack.pop(), Some('b'));
+        assert_eq!(stack.pop(), Some('c')); // LIFO: 'c' before 'a'
+        assert_eq!(stack.pop(), Some('a'));
+        assert_eq!(stack.pop(), None);
+    }
+
+    #[test]
+    fn test_priority_stack_pop_prio_and_peek_prio() {
+        let mut stack = PriorityStack::new();
+        stack.push(5, "high");
+        stack.push(0, "low");
+
+        assert_eq!(stack.peek_prio(), Some((5, &"high")));
+        assert_eq!(stack.pop_prio(), Some((5, "high")));
+        assert_eq!(stack.pop_prio(), Some((0, "low")));
+        assert_eq!(stack.pop_prio(), None);
+    }
+}

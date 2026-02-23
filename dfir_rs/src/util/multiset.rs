@@ -61,4 +61,11 @@ mod test {
 
         assert_eq!(x, HashMultiSet::from_iter([2, 1, 2]));
     }
+
+    #[test]
+    fn count_tracking() {
+        let x: HashMultiSet<i32> = [1, 1, 1, 2, 2, 3].into_iter().collect();
+        let y: HashMultiSet<i32> = [1, 2, 1, 3, 1, 2].into_iter().collect();
+        assert_eq!(x, y); // Same counts, different order
+    }
 }

@@ -73,4 +73,27 @@ mod test {
         assert_eq!(x.items.len(), 0);
         assert_eq!(x.item_locs.len(), 0);
     }
+
+    #[test]
+    fn delete_multiple_same_value() {
+        let mut x = SparseVec::default();
+        x.push(1);
+        x.push(2);
+        x.push(1);
+        x.push(3);
+        x.push(1);
+
+        x.delete(&1);
+        assert_eq!(collect(&x), vec![2, 3]);
+    }
+
+    #[test]
+    fn delete_nonexistent() {
+        let mut x = SparseVec::default();
+        x.push(1);
+        x.push(2);
+
+        x.delete(&999); // Doesn't exist
+        assert_eq!(collect(&x), vec![1, 2]);
+    }
 }
