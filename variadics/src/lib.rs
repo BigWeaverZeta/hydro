@@ -979,6 +979,14 @@ mod test {
         assert_eq!(column_store.get(0).unwrap(), first.as_ref_var());
         assert_eq!(column_store.get(1).unwrap(), second.as_ref_var());
     }
+
+    #[test]
+    fn test_split_variadic() {
+        let original = var_expr!(1_u8, 2_u16, 3_u32, 4_u64);
+        let (prefix, suffix): (var_type!(u8, u16), var_type!(u32, u64)) = original.split();
+        assert_eq!(prefix, var_expr!(1_u8, 2_u16));
+        assert_eq!(suffix, var_expr!(3_u32, 4_u64));
+    }
 }
 
 #[test]

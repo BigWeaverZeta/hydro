@@ -352,4 +352,12 @@ mod test {
         ];
         check_all(items);
     }
+
+    #[test]
+    fn merge_equal_returns_false() {
+        let mut a = Max::new(42);
+        let b = Max::new(42);
+        assert!(!a.merge(b)); // No change when values equal
+        assert_eq!(a.into_reveal(), 42);
+    }
 }
