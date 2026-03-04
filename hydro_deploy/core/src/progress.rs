@@ -626,21 +626,21 @@ mod tests {
 
     #[tokio::test]
     async fn test_progress_with_group_basic() {
-        let result = ProgressTracker::rich_leaf("test_task", 100, |_set_progress, _set_msg| async {
+        let result = ProgressTracker::rich_leaf("test_task", |_set_msg| async {
             42
         })
         .await;
-        
+
         assert_eq!(result, 42);
     }
 
     #[tokio::test]
     async fn test_progress_with_group_nested() {
         let result = ProgressTracker::with_group("outer", Some(1), || async {
-            ProgressTracker::rich_leaf("inner", 100, |_set_progress, _set_msg| async { 10 }).await
+            ProgressTracker::rich_leaf("inner", |_set_msg| async { 10 }).await
         })
         .await;
-        
+
         assert_eq!(result, 10);
     }
 
@@ -652,7 +652,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_progress_leaf_completes() {
-        let result = ProgressTracker::leaf("simple_task", || async { "done" }).await;
+        let result = ProgressTracker::leaf("simple_task", async { "done" }).await;
         assert_eq!(result, "done");
     }
 }
