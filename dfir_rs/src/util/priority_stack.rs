@@ -95,3 +95,165 @@ impl<T> Extend<(usize, T)> for PriorityStack<T> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new_empty() {
+        let ps: PriorityStack<i32> = PriorityStack::new();
+        assert_eq!(ps.len(), 0);
+        // is_empty checks stacks.is_empty() which is true for a fresh stack
+        assert!(ps.is_empty());
+        assert!(ps.peek().is_none());
+    }
+
+    #[test]
+    fn test_push_pop_single() {
+        let mut ps = PriorityStack::new();
+        ps.push(0, "hello");
+
+        assert_eq!(ps.len(), 1);
+        assert_eq!(ps.pop(), Some("hello"));
+        assert_eq!(ps.len(), 0);
+        assert_eq!(ps.pop(), None);
+    }
+
+    #[test]
+    fn test_highest_priority_first() {
+        let mut ps = PriorityStack::new();
+        ps.push(0, "low");
+        ps.push(2, "high");
+        ps.push(1, "mid");
+
+        assert_eq!(ps.pop(), Some("high"));
+        assert_eq!(ps.pop(), Some("mid"));
+        assert_eq!(ps.pop(), Some("low"));
+        assert_eq!(ps.pop(), None);
+    }
+
+    #[test]
+    fn test_lifo_within_same_priority() {
+        let mut ps = PriorityStack::new();
+        ps.push(1, "A");
+        ps.push(1, "B");
+        ps.push(1, "C");
+
+        assert_eq!(ps.pop(), Some("C"));
+        assert_eq!(ps.pop(), Some("B"));
+        assert_eq!(ps.pop(), Some("A"));
+        assert_eq!(ps.pop(), None);
+    }
+
+    #[test]
+    fn test_pop_prio() {
+        let mut ps = PriorityStack::new();
+        ps.push(0, 10);
+        ps.push(3, 30);
+        ps.push(1, 20);
+
+        assert_eq!(ps.pop_prio(), Some((3, 30)));
+        assert_eq!(ps.pop_prio(), Some((1, 20)));
+        assert_eq!(ps.pop_prio(), Some((0, 10)));
+        assert_eq!(ps.pop_prio(), None);
+    }
+
+    #[test]
+    fn test_peek() {
+        let mut ps = PriorityStack::new();
+        assert_eq!(ps.peek(), None);
+
+        ps.push(0, 1);
+        ps.push(2, 3);
+        assert_eq!(ps.peek(), Some(&3));
+
+        // peek does not remove the item
+        assert_eq!(ps.peek(), Some(&3));
+        assert_eq!(ps.len(), 2);
+    }
+
+    #[test]
+    fn test_peek_prio() {
+        let mut ps = PriorityStack::new();
+        assert_eq!(ps.peek_prio(), None);
+
+        ps.push(1, "mid");
+        ps.push(5, "high");
+        ps.push(0, "low");
+
+        assert_eq!(ps.peek_prio(), Some((5, &"high")));
+        // peek_prio does not remove
+        assert_eq!(ps.len(), 3);
+    }
+
+    #[test]
+    fn test_len_tracks_correctly() {
+        let mut ps = PriorityStack::new();
+        assert_eq!(ps.len(), 0);
+
+        ps.push(0, "a");
+        assert_eq!(ps.len(), 1);
+
+        ps.push(1, "b");
+        assert_eq!(ps.len(), 2);
+
+        ps.push(0, "c");
+        assert_eq!(ps.len(), 3);
+
+        ps.pop();
+        assert_eq!(ps.len(), 2);
+
+        ps.pop();
+        assert_eq!(ps.len(), 1);
+
+        ps.pop();
+        assert_eq!(ps.len(), 0);
+    }
+
+    #[test]
+    fn test_extend() {
+        let mut ps = PriorityStack::new();
+        ps.extend(vec![(0, "low"), (2, "high"), (1, "mid")]);
+
+        assert_eq!(ps.len(), 3);
+        assert_eq!(ps.pop(), Some("high"));
+        assert_eq!(ps.pop(), Some("mid"));
+        assert_eq!(ps.pop(), Some("low"));
+    }
+
+    #[test]
+    fn test_mixed_priorities_complex() {
+        let mut ps = PriorityStack::new();
+
+        // Push at various priorities
+        ps.push(1, "1a");
+        ps.push(0, "0a");
+        ps.push(2, "2a");
+        ps.push(1, "1b");
+        ps.push(2, "2b");
+
+        // Pop highest priority first (2), LIFO within same priority
+        assert_eq!(ps.pop(), Some("2b"));
+        assert_eq!(ps.pop(), Some("2a"));
+
+        // Push more while partially consumed
+        ps.push(3, "3a");
+        ps.push(1, "1c");
+
+        // Now priority 3 is highest
+        assert_eq!(ps.pop(), Some("3a"));
+
+        // Back to priority 1 (LIFO: 1c, 1b, 1a)
+        assert_eq!(ps.pop(), Some("1c"));
+        assert_eq!(ps.pop(), Some("1b"));
+        assert_eq!(ps.pop(), Some("1a"));
+
+        // Finally priority 0
+        assert_eq!(ps.pop(), Some("0a"));
+
+        // Empty
+        assert_eq!(ps.pop(), None);
+        assert_eq!(ps.len(), 0);
+    }
+}

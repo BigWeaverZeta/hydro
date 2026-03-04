@@ -272,3 +272,174 @@ impl<Tag: ?Sized, Val> IndexMut<Key<Tag>> for SecondarySlotVec<Tag, Val> {
         self.get_mut(key).unwrap()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct TestTag;
+
+    // --- SlotVec tests ---
+
+    #[test]
+    fn test_slotvec_new_empty() {
+        let sv: SlotVec<TestTag, i32> = SlotVec::new();
+        assert!(sv.is_empty());
+        assert_eq!(sv.len(), 0);
+    }
+
+    #[test]
+    fn test_slotvec_insert_get() {
+        let mut sv: SlotVec<TestTag, &str> = SlotVec::new();
+        let k0 = sv.insert("hello");
+        let k1 = sv.insert("world");
+
+        assert_eq!(sv.get(k0), Some(&"hello"));
+        assert_eq!(sv.get(k1), Some(&"world"));
+        assert_eq!(sv.len(), 2);
+        assert!(!sv.is_empty());
+    }
+
+    #[test]
+    fn test_slotvec_insert_with_key() {
+        let mut sv: SlotVec<TestTag, String> = SlotVec::new();
+        let k = sv.insert_with_key(|key| format!("key_index_{}", key));
+
+        assert_eq!(sv.get(k), Some(&"key_index_0".to_string()));
+
+        let k2 = sv.insert_with_key(|key| format!("key_index_{}", key));
+        assert_eq!(sv.get(k2), Some(&"key_index_1".to_string()));
+    }
+
+    #[test]
+    fn test_slotvec_index() {
+        let mut sv: SlotVec<TestTag, i32> = SlotVec::new();
+        let k0 = sv.insert(10);
+        let k1 = sv.insert(20);
+
+        assert_eq!(sv[k0], 10);
+        assert_eq!(sv[k1], 20);
+
+        sv[k0] = 99;
+        assert_eq!(sv[k0], 99);
+    }
+
+    #[test]
+    fn test_slotvec_get_out_of_range() {
+        let sv: SlotVec<TestTag, i32> = SlotVec::new();
+        let fake_key = Key::<TestTag>::from_raw(5);
+        assert_eq!(sv.get(fake_key), None);
+    }
+
+    #[test]
+    fn test_slotvec_iter() {
+        let mut sv: SlotVec<TestTag, &str> = SlotVec::new();
+        let k0 = sv.insert("a");
+        let k1 = sv.insert("b");
+        let k2 = sv.insert("c");
+
+        let items: Vec<(Key<TestTag>, &&str)> = sv.iter().collect();
+        assert_eq!(items.len(), 3);
+        assert_eq!(items[0].0, k0);
+        assert_eq!(*items[0].1, "a");
+        assert_eq!(items[1].0, k1);
+        assert_eq!(*items[1].1, "b");
+        assert_eq!(items[2].0, k2);
+        assert_eq!(*items[2].1, "c");
+    }
+
+    #[test]
+    fn test_slotvec_keys_and_values() {
+        let mut sv: SlotVec<TestTag, i32> = SlotVec::new();
+        let k0 = sv.insert(100);
+        let k1 = sv.insert(200);
+        let k2 = sv.insert(300);
+
+        let keys: Vec<Key<TestTag>> = sv.keys().collect();
+        assert_eq!(keys, vec![k0, k1, k2]);
+
+        let values: Vec<&i32> = sv.values().collect();
+        assert_eq!(values, vec![&100, &200, &300]);
+    }
+
+    // --- SecondarySlotVec tests ---
+
+    #[test]
+    fn test_secondary_insert_and_get() {
+        let mut ssv: SecondarySlotVec<TestTag, &str> = SecondarySlotVec::new();
+        let key = Key::<TestTag>::from_raw(0);
+
+        let old = ssv.insert(key, "hello");
+        assert_eq!(old, None);
+        assert_eq!(ssv.get(key), Some(&"hello"));
+    }
+
+    #[test]
+    fn test_secondary_overwrite() {
+        let mut ssv: SecondarySlotVec<TestTag, i32> = SecondarySlotVec::new();
+        let key = Key::<TestTag>::from_raw(2);
+
+        let old1 = ssv.insert(key, 10);
+        assert_eq!(old1, None);
+
+        let old2 = ssv.insert(key, 20);
+        assert_eq!(old2, Some(10));
+        assert_eq!(ssv.get(key), Some(&20));
+    }
+
+    #[test]
+    fn test_secondary_remove() {
+        let mut ssv: SecondarySlotVec<TestTag, i32> = SecondarySlotVec::new();
+        let key = Key::<TestTag>::from_raw(1);
+
+        ssv.insert(key, 42);
+        let removed = ssv.remove(key);
+        assert_eq!(removed, Some(42));
+        assert_eq!(ssv.get(key), None);
+    }
+
+    #[test]
+    fn test_secondary_get_or_insert_with() {
+        let mut ssv: SecondarySlotVec<TestTag, String> = SecondarySlotVec::new();
+        let key = Key::<TestTag>::from_raw(3);
+
+        // First call inserts the default
+        let val = ssv.get_or_insert_with(key, || "default".to_string());
+        assert_eq!(val, "default");
+
+        // Second call returns the existing value
+        let val = ssv.get_or_insert_with(key, || "other".to_string());
+        assert_eq!(val, "default");
+    }
+
+    #[test]
+    fn test_secondary_sparse_keys() {
+        let mut ssv: SecondarySlotVec<TestTag, i32> = SecondarySlotVec::new();
+        let key5 = Key::<TestTag>::from_raw(5);
+
+        ssv.insert(key5, 999);
+
+        // Keys 0-4 should return None
+        for i in 0..5 {
+            assert_eq!(ssv.get(Key::<TestTag>::from_raw(i)), None);
+        }
+        assert_eq!(ssv.get(key5), Some(&999));
+    }
+
+    #[test]
+    fn test_secondary_iter() {
+        let mut ssv: SecondarySlotVec<TestTag, &str> = SecondarySlotVec::new();
+        let k1 = Key::<TestTag>::from_raw(1);
+        let k3 = Key::<TestTag>::from_raw(3);
+
+        ssv.insert(k1, "one");
+        ssv.insert(k3, "three");
+
+        let items: Vec<(Key<TestTag>, &&str)> = ssv.iter().collect();
+        assert_eq!(items.len(), 2);
+        assert_eq!(items[0].0, k1);
+        assert_eq!(*items[0].1, "one");
+        assert_eq!(items[1].0, k3);
+        assert_eq!(*items[1].1, "three");
+    }
+}
