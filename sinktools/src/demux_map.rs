@@ -81,3 +81,100 @@ where
 {
     DemuxMap::new(sinks)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::for_each::ForEach;
+    use futures_util::SinkExt;
+    use std::cell::RefCell;
+    use std::collections::HashMap;
+
+    #[tokio::test]
+    async fn test_demux_map_routes_to_correct_sink() {
+        let result_a = RefCell::new(Vec::new());
+        let result_b = RefCell::new(Vec::new());
+
+        let sink_a = ForEach::new(|x: i32| result_a.borrow_mut().push(x));
+        let sink_b = ForEach::new(|x: i32| result_b.borrow_mut().push(x));
+
+        let mut sinks_map = HashMap::new();
+        sinks_map.insert("a", sink_a);
+        sinks_map.insert("b", sink_b);
+
+        let mut demux: DemuxMap<&str, _> = DemuxMap::new::<i32>(sinks_map);
+
+        SinkExt::send(&mut demux, ("a", 1)).await.unwrap();
+        SinkExt::send(&mut demux, ("b", 2)).await.unwrap();
+        SinkExt::send(&mut demux, ("a", 3)).await.unwrap();
+        SinkExt::send(&mut demux, ("b", 4)).await.unwrap();
+        SinkExt::flush(&mut demux).await.unwrap();
+
+        assert_eq!(*result_a.borrow(), vec![1, 3]);
+        assert_eq!(*result_b.borrow(), vec![2, 4]);
+    }
+
+    #[tokio::test]
+    async fn test_demux_map_single_key() {
+        let result = RefCell::new(Vec::new());
+
+        let sink = ForEach::new(|x: i32| result.borrow_mut().push(x));
+
+        let mut sinks_map = HashMap::new();
+        sinks_map.insert("only", sink);
+
+        let mut demux: DemuxMap<&str, _> = DemuxMap::new::<i32>(sinks_map);
+
+        SinkExt::send(&mut demux, ("only", 10)).await.unwrap();
+        SinkExt::send(&mut demux, ("only", 20)).await.unwrap();
+        SinkExt::send(&mut demux, ("only", 30)).await.unwrap();
+        SinkExt::flush(&mut demux).await.unwrap();
+
+        assert_eq!(*result.borrow(), vec![10, 20, 30]);
+    }
+
+    #[tokio::test]
+    async fn test_demux_map_empty_after_close() {
+        let result_a = RefCell::new(Vec::new());
+        let result_b = RefCell::new(Vec::new());
+
+        let sink_a = ForEach::new(|x: i32| result_a.borrow_mut().push(x));
+        let sink_b = ForEach::new(|x: i32| result_b.borrow_mut().push(x));
+
+        let mut sinks_map = HashMap::new();
+        sinks_map.insert("a", sink_a);
+        sinks_map.insert("b", sink_b);
+
+        let mut demux: DemuxMap<&str, _> = DemuxMap::new::<i32>(sinks_map);
+
+        SinkExt::send(&mut demux, ("a", 100)).await.unwrap();
+        SinkExt::send(&mut demux, ("b", 200)).await.unwrap();
+        SinkExt::close(&mut demux).await.unwrap();
+
+        assert_eq!(*result_a.borrow(), vec![100]);
+        assert_eq!(*result_b.borrow(), vec![200]);
+    }
+
+    #[tokio::test]
+    async fn test_demux_map_free_fn() {
+        let result_x = RefCell::new(Vec::new());
+        let result_y = RefCell::new(Vec::new());
+
+        let sink_x = ForEach::new(|x: i32| result_x.borrow_mut().push(x));
+        let sink_y = ForEach::new(|x: i32| result_y.borrow_mut().push(x));
+
+        let mut sinks_map = HashMap::new();
+        sinks_map.insert("x", sink_x);
+        sinks_map.insert("y", sink_y);
+
+        let mut demux = demux_map(sinks_map);
+
+        SinkExt::send(&mut demux, ("x", 5)).await.unwrap();
+        SinkExt::send(&mut demux, ("y", 10)).await.unwrap();
+        SinkExt::send(&mut demux, ("x", 15)).await.unwrap();
+        SinkExt::flush(&mut demux).await.unwrap();
+
+        assert_eq!(*result_x.borrow(), vec![5, 15]);
+        assert_eq!(*result_y.borrow(), vec![10]);
+    }
+}
