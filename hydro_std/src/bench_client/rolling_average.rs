@@ -81,3 +81,100 @@ impl RollingAverage {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_rolling_average_basic_statistics() {
+        let mut avg = RollingAverage::new();
+        
+        // Test empty state
+        assert_eq!(avg.sample_count(), 0);
+        assert_eq!(avg.sample_mean(), 0.0);
+        assert_eq!(avg.sample_variance(), 0.0);
+        assert_eq!(avg.sample_std_dev(), 0.0);
+        assert!(avg.confidence_interval_99().is_none());
+        
+        // Add samples: [2.0, 4.0, 6.0, 8.0, 10.0]
+        avg.add_sample(2.0);
+        avg.add_sample(4.0);
+        avg.add_sample(6.0);
+        avg.add_sample(8.0);
+        avg.add_sample(10.0);
+        
+        assert_eq!(avg.sample_count(), 5);
+        assert_eq!(avg.sample_mean(), 6.0); // (2+4+6+8+10)/5 = 30/5 = 6
+        
+        // Variance calculation: E[X^2] - E[X]^2
+        // (4+16+36+64+100)/5 = 220/5 = 44
+        // 44 - 36 = 8 (population variance)
+        // Sample variance: n/(n-1) * population_variance = 5/4 * 8 = 10
+        assert!((avg.sample_variance() - 10.0).abs() < 0.0001);
+        
+        // Standard deviation = sqrt(10) ≈ 3.162
+        assert!((avg.sample_std_dev() - 3.162).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_rolling_average_single_sample() {
+        let mut avg = RollingAverage::new();
+        avg.add_sample(5.0);
+        
+        assert_eq!(avg.sample_count(), 1);
+        assert_eq!(avg.sample_mean(), 5.0);
+        assert_eq!(avg.sample_variance(), 0.0); // Single sample has no variance
+        assert_eq!(avg.sample_std_dev(), 0.0);
+        assert!(avg.confidence_interval_99().is_none()); // Need at least 2 samples
+    }
+
+    #[test]
+    fn test_rolling_average_confidence_interval() {
+        let mut avg = RollingAverage::new();
+        
+        // Add multiple samples to get meaningful confidence interval
+        for i in 1..=10 {
+            avg.add_sample(i as f64);
+        }
+        
+        let mean = avg.sample_mean();
+        assert_eq!(mean, 5.5); // (1+2+...+10)/10 = 55/10 = 5.5
+        
+        let ci = avg.confidence_interval_99();
+        assert!(ci.is_some());
+        
+        let (lower, upper) = ci.unwrap();
+        assert!(lower < mean);
+        assert!(upper > mean);
+        assert!(lower > 0.0);
+        assert!(upper < 11.0);
+        
+        // The interval should be symmetric around the mean
+        let margin = (upper - lower) / 2.0;
+        assert!((mean - lower - margin).abs() < 0.0001);
+        assert!((upper - mean - margin).abs() < 0.0001);
+    }
+
+    #[test]
+    fn test_rolling_average_combine() {
+        let mut avg1 = RollingAverage::new();
+        avg1.add_sample(1.0);
+        avg1.add_sample(2.0);
+        avg1.add_sample(3.0);
+        
+        let mut avg2 = RollingAverage::new();
+        avg2.add_sample(4.0);
+        avg2.add_sample(5.0);
+        
+        // Combine avg2 into avg1
+        avg1.add(avg2);
+        
+        assert_eq!(avg1.sample_count(), 5);
+        assert_eq!(avg1.sample_mean(), 3.0); // (1+2+3+4+5)/5 = 15/5 = 3
+        
+        // Verify all samples are present
+        let variance = avg1.sample_variance();
+        assert!(variance > 0.0);
+    }
+}

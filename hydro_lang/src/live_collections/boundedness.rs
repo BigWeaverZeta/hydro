@@ -60,3 +60,19 @@ impl KeyedBoundFoldLike for Bounded {
     type WhenValueUnbounded = Bounded;
     type WhenValueBounded = Bounded;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_boundedness_constants() {
+        // Test that Bounded has correct constant
+        assert!(Bounded::BOUNDED);
+        assert_eq!(Bounded::BOUND_KIND, BoundKind::Bounded);
+        
+        // Test that Unbounded has correct constant
+        assert!(!Unbounded::BOUNDED);
+        assert_eq!(Unbounded::BOUND_KIND, BoundKind::Unbounded);
+    }
+}

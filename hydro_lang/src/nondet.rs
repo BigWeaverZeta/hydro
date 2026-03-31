@@ -86,3 +86,57 @@ macro_rules! __nondet__ {
         }
     };
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_nondet_macro_basic() {
+        // Test that the macro produces a NonDet value
+        let nd = nondet!(
+            /// This is a test reason for non-determinism
+        );
+        
+        // Should be able to copy and clone
+        let nd_copy = nd;
+        let nd_clone = nd.clone();
+        
+        // All should be the same type
+        let _: NonDet = nd;
+        let _: NonDet = nd_copy;
+        let _: NonDet = nd_clone;
+    }
+
+    #[test]
+    fn test_nondet_macro_with_forwarding() {
+        // Create a parent NonDet
+        let parent_nd = nondet!(
+            /// Parent non-determinism
+        );
+        
+        // Forward the non-determinism
+        let child_nd = nondet!(
+            /// Child inherits parent non-determinism
+            parent_nd
+        );
+        
+        // Both should be valid NonDet values
+        let _: NonDet = parent_nd;
+        let _: NonDet = child_nd;
+    }
+
+    #[test]
+    fn test_nondet_macro_multiple_forwards() {
+        let nd1 = nondet!(/** First source */);
+        let nd2 = nondet!(/** Second source */);
+        
+        // Combine multiple sources
+        let combined = nondet!(
+            /// Combined non-determinism from multiple sources
+            nd1, nd2
+        );
+        
+        let _: NonDet = combined;
+    }
+}
