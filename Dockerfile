@@ -1,5 +1,5 @@
 # Compilation stage
-FROM --platform=$BUILDPLATFORM rust:slim-buster AS build
+FROM --platform=$BUILDPLATFORM rust:slim-bookworm AS build
 
 ARG TARGETOS TARGETARCH
 
@@ -18,7 +18,7 @@ RUN ls -dR target/*/release/examples/* | grep -vE '^.*/[a-z_]+\-.*$' | grep -vE 
 RUN mkdir -p xfer/example_utils && cp dfir_rs/example_utils/* xfer/example_utils/.
 
 # Runtime stage
-FROM rust:slim-buster
+FROM rust:slim-bookworm
 
 RUN apt-get update && apt-get install -y python3
 

@@ -241,7 +241,7 @@ mod tests {
     #[test]
     fn test_preprocess_singletons_preserves_other_hashes() {
         // Test that standalone # not followed by ident is preserved
-        let tokens: TokenStream = quote! { ## };
+        let tokens: TokenStream = quote! { # # };
         let mut found_idents = Vec::new();
         
         let result = preprocess_singletons(tokens, &mut found_idents);
