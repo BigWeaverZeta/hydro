@@ -56,6 +56,13 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
+      # Benchmarks have been moved to the hydro-deps repo.
+      - name: Checkout hydro-deps
+        uses: actions/checkout@v4
+        with:
+          repository: BigWeaverZeta/hydro-deps
+          path: hydro-deps
+
       - name: Checkout gh-pages
         shell: bash
         run: |
@@ -74,9 +81,10 @@ jobs:
           mkdir -p "$WWW_DIR/bench"
 
       - name: Run benchmark
+        working-directory: hydro-deps
         run: |
-          time cargo bench -p benches -- dfir --output-format bencher | tee output.txt
-          time cargo bench -p benches -- micro/ops/ --output-format bencher | tee -a output.txt
+          time cargo bench -p benches -- dfir --output-format bencher | tee ../output.txt
+          time cargo bench -p benches -- micro/ops/ --output-format bencher | tee -a ../output.txt
 
       - name: Generate benchmark page
         uses: benchmark-action/github-action-benchmark@v1
