@@ -1,0 +1,34 @@
+{
+  "id": "FEAT-001",
+  "type": "chore",
+  "description": "Remove the benches crate from the hydro repo since it has been moved to hydro-deps. This involves deleting the benches/ directory, removing it from the workspace members in Cargo.toml, regenerating Cargo.lock, removing the benchmark.yml CI workflow (which runs cargo bench -p benches and will no longer work), updating CONTRIBUTING.md to reflect the new location, and creating CHANGELOG.md files in both repos per steering rules.",
+  "status": "completed",
+  "steps": [
+    "Delete the entire /projects/sandbox/hydro/benches/ directory (contains Cargo.toml, build.rs, README.md, and benches/ subdirectory with .rs benchmark files and .txt data files)",
+    "Edit /projects/sandbox/hydro/Cargo.toml: remove 'benches' from the workspace members array (line 5, the first member entry)",
+    "Run 'cargo generate-lockfile' or manually remove the benches package entry from /projects/sandbox/hydro/Cargo.lock to keep it consistent. Since we cannot run cargo in INTEGRATIONS_ONLY, manually remove the [[package]] block for name='benches' from Cargo.lock.",
+    "Delete /projects/sandbox/hydro/.github/workflows/benchmark.yml since it runs 'cargo bench -p benches' which will no longer exist in this repo. The benchmarks will be run from hydro-deps instead.",
+    "Update /projects/sandbox/hydro/CONTRIBUTING.md: change the bullet point about 'benches contains some microbenchmarks for DFIR and other frameworks' to note that benchmarks have been moved to the hydro-deps repository.",
+    "Create /projects/sandbox/hydro/CHANGELOG.md documenting this change: benchmarks moved from hydro to hydro-deps repo, benchmark.yml workflow removed, with today's date and author 'Kiro'.",
+    "Create /projects/sandbox/hydro-deps/CHANGELOG.md documenting this change: benchmarks received from hydro repo, with today's date and author 'Kiro'."
+  ],
+  "acceptance_criteria": [
+    "/projects/sandbox/hydro/benches/ directory no longer exists",
+    "/projects/sandbox/hydro/Cargo.toml workspace members does not include 'benches'",
+    "/projects/sandbox/hydro/Cargo.lock does not contain a [[package]] entry for name='benches'",
+    "/projects/sandbox/hydro/.github/workflows/benchmark.yml no longer exists",
+    "/projects/sandbox/hydro/CONTRIBUTING.md references hydro-deps for benchmarks",
+    "/projects/sandbox/hydro/CHANGELOG.md exists with the change description",
+    "/projects/sandbox/hydro-deps/CHANGELOG.md exists with the change description"
+  ],
+  "verification": [
+    "Confirm /projects/sandbox/hydro/benches/ does not exist: PASS",
+    "Confirm benches is not in workspace members: PASS",
+    "Confirm Cargo.lock has no benches entry: PASS",
+    "Confirm benchmark.yml is gone: PASS",
+    "Confirm CONTRIBUTING.md mentions hydro-deps for benchmarks: PASS",
+    "Confirm CHANGELOG.md files exist in both repos: PASS"
+  ],
+  "blocked_reason": null,
+  "findings": "All acceptance criteria verified. Orphaned dependencies in Cargo.lock (nameof, rand_distr, differential-dataflow-master, timely-master) will be cleaned up on next cargo invocation."
+}

@@ -1,0 +1,24 @@
+{
+  "project_type": "Rust monorepo (Cargo workspace) with a companion deps repo for extracted tests/benchmarks",
+  "language": "Rust",
+  "build_system": "Cargo workspace. hydro repo is the main monorepo; hydro-deps is a separate repo that holds extracted tests and benchmarks with git-based dependencies back to hydro.",
+  "test_framework": "cargo test / cargo nextest. Benchmarks use criterion.",
+  "build_command": "cargo check --all-targets (in /projects/sandbox/hydro)",
+  "test_command": "cargo test --all-targets (in /projects/sandbox/hydro) -- but INTEGRATIONS_ONLY network means we cannot install deps. Use AST/syntax validation instead.",
+  "verification_instructions": "1. Verify benches/ directory is removed from hydro repo. 2. Verify 'benches' is removed from workspace members in hydro/Cargo.toml. 3. Verify Cargo.lock no longer contains the benches package entry. 4. Verify benchmark.yml workflow is removed from hydro. 5. Verify CHANGELOG.md files are created in both repos.",
+  "snapshot_or_generated_files": null,
+  "setup_instructions": "Rust toolchain 1.90.0 is pinned in rust-toolchain.toml. No special setup needed beyond cargo.",
+  "environment_constraints": "INTEGRATIONS_ONLY network - cannot install packages, pull images, or make external network calls. Use file-level validation (check file contents, verify removals, check TOML syntax) rather than cargo build/test.",
+  "contribution_requirements": "Conventional commits. PRs should follow squash+merge. RELEASING.md has guidance on moving crates (changelog preservation). Since benches is publish=false and version 0.0.0, no release/changelog concerns for the crate itself.",
+  "key_patterns": "Workspace members listed in root Cargo.toml. hydro-deps uses git dependencies pointing to BigWeaverZeta/hydro.git for dfir_rs and sinktools. The benchmark.yml workflow runs 'cargo bench -p benches'. CI workflow (ci.yml) does not reference benches directly.",
+  "relevant_files": [
+    "/projects/sandbox/hydro/Cargo.toml",
+    "/projects/sandbox/hydro/Cargo.lock",
+    "/projects/sandbox/hydro/benches/",
+    "/projects/sandbox/hydro/.github/workflows/benchmark.yml",
+    "/projects/sandbox/hydro/CONTRIBUTING.md",
+    "/projects/sandbox/hydro-deps/Cargo.toml",
+    "/projects/sandbox/hydro-deps/benches/Cargo.toml"
+  ],
+  "directory_structure": "hydro/ is the main monorepo with workspace members (dfir_rs, hydro_lang, etc.) and benches/. hydro-deps/ is a companion repo with extracted tests (dfir_rs_tests, hydro_lang_tests, etc.) and already has benches/ copied over with git-based deps."
+}

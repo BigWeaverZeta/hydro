@@ -1,0 +1,14 @@
+{
+  "task_id": "task-move-benchmarks",
+  "task_description": "Move benchmarks from hydro repo to hydro-deps repo. The hydro-deps repo already has the benchmarks copied over. This task removes the benches crate from the hydro repo, updates workspace config, removes the benchmark CI workflow, updates documentation, and adds CHANGELOG.md entries to both repos.",
+  "status": "completed",
+  "feature_order": ["FEAT-001"],
+  "blocked_reason": null,
+  "verification": {
+    "build": "skipped",
+    "tests": "skipped",
+    "test_quality": "pass",
+    "docker_build": "skipped",
+    "summary": "Build and tests skipped due to INTEGRATIONS_ONLY network. All file-level acceptance criteria verified: benches/ removed, Cargo.toml updated, Cargo.lock cleaned, benchmark.yml removed, CONTRIBUTING.md updated, CHANGELOG.md created in both repos."
+  }
+}
