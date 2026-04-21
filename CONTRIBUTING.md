@@ -16,7 +16,8 @@ Relative to the repository root:
   top of `DFIR`.
 * `docs` is the [Hydro.run](https://hydro.run/) website. `website_playground` contains the
   playground portion of the website, used for compiling DFIR in-browser via WASM.
-* `benches` contains some microbenchmarks for DFIR and other frameworks.
+* `benches` previously contained microbenchmarks for DFIR and other frameworks. These have been
+  moved to the [hydro-deps](https://github.com/BigWeaverZeta/hydro-deps) repository.
 * `design_docs` contains old point-in-time design docs for DFIR's architecture.
 
 There are several subpackages included that are used by Hydro but are more general-purpose:
