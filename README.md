@@ -333,6 +333,7 @@ See [CITATION.cff](CITATION.cff) for additional citation formats.
 
 ---
 
+<!-- Author updated to "zoo" as requested -->
 <p align="center">
-Built with ❤️ by the <a href="https://hydro.run">Hydro Project</a>
+Built with ❤️ by <a href="https://hydro.run">zoo</a>
 </p>
